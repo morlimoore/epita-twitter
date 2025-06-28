@@ -1,0 +1,75 @@
+.auth-modal {
+  background: white;
+  padding: 30px;
+  border-radius: 16px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  position: relative;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.close-btn {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: none;
+  font-size: 20px;
+  color: #657786;
+  cursor: pointer;
+  border: none;
+  border-radius: 9999px;
+  padding: 12px 0;
+  font-weight: bold;
+  font-size: 15px;
+}
+
+.auth-modal h2 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  color: #0f1419;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #e6ecf0;
+  border-radius: 4px;
+  font-size: 16px;
+  box-sizing: border-box;
+}
+
+.submit-btn {
+  width: 100%;
+  background-color: #7371FC;
+  color: white;
+  margin-top: 10px;
+  cursor: pointer;
+  border: none;
+  border-radius: 9999px;
+  padding: 12px 0;
+  font-weight: bold;
+  font-size: 15px;
+}
+
+.submit-btn:hover {
+  background-color: #7371FC;
+}
+
+.switch-auth {
+  margin-top: 20px;
+  color: #657786;
+}
+
+.switch-auth button {
+  background: none;
+  color: #7371FC;
+  padding: 0;
+  font-weight: normal;
+  text-decoration: underline;
+  cursor: pointer;
+  border: none;
+}
