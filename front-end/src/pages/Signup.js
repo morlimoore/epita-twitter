@@ -1,20 +1,39 @@
 import React, { useState } from 'react';
-import './Signup.css';
+import '../styles/Signup.css';
+import { authAPI } from '../services/api';
 
 const Signup = ({ onClose, switchToLogin }) => {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Signup submitted:', { username, email, password });
+    setLoading(true);
+    setError('');
+
+    try {
+      const response = await authAPI.register({ username, email, password });
+      
+      if (response.success) {
+        alert('Account created successfully!');
+        onClose(); // Close the modal
+        // You can add redirect logic here later
+      }
+    } catch (error) {
+      setError(error.message || 'Registration failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="auth-modal">
       <button className="close-btn" onClick={onClose}>×</button>
       <h2>Create your account</h2>
+      {error && <div className="error-message">{error}</div>}
       <form onSubmit={handleSubmit}>
         <div className="form-group">
           <input
@@ -23,6 +42,7 @@ const Signup = ({ onClose, switchToLogin }) => {
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             required
+            disabled={loading}
           />
         </div>
         <div className="form-group">
@@ -32,6 +52,7 @@ const Signup = ({ onClose, switchToLogin }) => {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
+            disabled={loading}
           />
         </div>
         <div className="form-group">
@@ -41,9 +62,12 @@ const Signup = ({ onClose, switchToLogin }) => {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
+            disabled={loading}
           />
         </div>
-        <button type="submit" className="submit-btn">Sign up</button>
+        <button type="submit" className="submit-btn" disabled={loading}>
+          {loading ? 'Creating account...' : 'Sign up'}
+        </button>
       </form>
       <p className="switch-auth">
         Already have an account?{' '}

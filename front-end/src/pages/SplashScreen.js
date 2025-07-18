@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import './SplashScreen.css';
+import '../styles/SplashScreen.css';
 import Login from './Login';
 import Signup from './Signup';
 
