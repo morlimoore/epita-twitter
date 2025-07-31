@@ -1,33 +1,52 @@
 import {
-  ArgumentsHost,
-  Catch,
-  ExceptionFilter,
-  HttpException,
+    ArgumentsHost,
+    Catch,
+    ExceptionFilter,
+    HttpException,
+    HttpStatus,
 } from '@nestjs/common';
+import { QueryFailedError, EntityNotFoundError } from 'typeorm';
 import { Response } from 'express';
 
 /**
  * the catch decorator binds the required metadatta to the exception filter
  */
-@Catch(HttpException)
-export class HttpExceptionFilter<T extends HttpException>
-  implements ExceptionFilter
-{
-  catch(exception: T, host: ArgumentsHost) {
-    const ctx = host.switchToHttp();
-    const response = ctx.getResponse<Response>();
+@Catch()
+export class AllExceptionsFilter implements ExceptionFilter {
+    catch(exception: unknown, host: ArgumentsHost) {
+        const ctx = host.switchToHttp();
+        const response = ctx.getResponse<Response>();
 
-    const status = exception.getStatus();
-    const exceptionResponse = exception.getResponse();
-    console.log({ exceptionResponse });
-    const error =
-      typeof response === 'string'
-        ? { message: exceptionResponse }
-        : (exceptionResponse as object);
+        let status = HttpStatus.INTERNAL_SERVER_ERROR;
+        let message = 'Internal server error';
 
-    response.status(status).json({
-      ...error,
-      timestamp: new Date().toISOString(),
-    });
-  }
+        if (exception instanceof HttpException) {
+            status = exception.getStatus();
+            message = exception.message;
+        } else if (exception instanceof QueryFailedError) {
+            status = HttpStatus.CONFLICT;
+            message = this.handleQueryError(exception);
+        } else if (exception instanceof EntityNotFoundError) {
+            status = HttpStatus.NOT_FOUND;
+            message = 'Entity not found';
+        }
+
+        response.status(status).json({
+            statusCode: status,
+            message,
+            timestamp: new Date().toISOString(),
+        });
+    }
+
+    private handleQueryError(error: QueryFailedError): string {
+        if (error.message.includes('duplicate key')) {
+            if (error.message.includes('UQ_Email')) {
+                return 'Email already exists';
+            }
+            if (error.message.includes('UQ_Username')) {
+                return 'Username already exists';
+            }
+        }
+        return 'Database error occurred';
+    }
 }
