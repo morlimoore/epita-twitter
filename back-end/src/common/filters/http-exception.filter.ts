@@ -4,9 +4,9 @@ import {
     ExceptionFilter,
     HttpException,
     HttpStatus,
+    UnauthorizedException,
 } from '@nestjs/common';
 import { QueryFailedError, EntityNotFoundError } from 'typeorm';
-import { Response } from 'express';
 
 /**
  * the catch decorator binds the required metadatta to the exception filter
@@ -15,12 +15,15 @@ import { Response } from 'express';
 export class AllExceptionsFilter implements ExceptionFilter {
     catch(exception: unknown, host: ArgumentsHost) {
         const ctx = host.switchToHttp();
-        const response = ctx.getResponse<Response>();
+        const response = ctx.getResponse();
 
         let status = HttpStatus.INTERNAL_SERVER_ERROR;
         let message = 'Internal server error';
 
-        if (exception instanceof HttpException) {
+        if (exception instanceof UnauthorizedException) {
+            status = HttpStatus.UNAUTHORIZED;
+            message = exception.message || 'Unauthorized';
+        } else if (exception instanceof HttpException) {
             status = exception.getStatus();
             message = exception.message;
         } else if (exception instanceof QueryFailedError) {
@@ -32,9 +35,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
         }
 
         response.status(status).json({
-            statusCode: status,
             message,
+            statusCode: status,
             timestamp: new Date().toISOString(),
+            payload: null
         });
     }
 

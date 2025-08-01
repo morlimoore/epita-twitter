@@ -3,9 +3,12 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 import { TimeoutInterceptor } from './common/interceptors/timeout.interceptor';
+import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    logger: ['log', 'error', 'warn', 'debug', 'verbose'],
+  });
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -22,8 +25,10 @@ async function bootstrap() {
 
   app.useGlobalInterceptors(
     new TimeoutInterceptor(),
+    new ResponseInterceptor(),
   );
 
   await app.listen(process.env.PORT ?? 3000);
 }
 bootstrap();
+

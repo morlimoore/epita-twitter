@@ -1,12 +1,9 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
-import { CreateUserDto } from "./dto/create-user.dto";
 import { UpdateUserDto } from "./dto/update-user.dto";
 import { InjectRepository } from "@nestjs/typeorm";
 import { DataSource, Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { User } from "./entities/user.entity";
-import * as bcrypt from 'bcrypt';
-import { UserMapper } from './mappers/user.mapper';
 
 @Injectable()
 export class UsersService {
@@ -21,23 +18,16 @@ export class UsersService {
         console.log(databaseHost);
     }
 
-    async create(createUserDto: CreateUserDto) {
-        const saltRounds = 10;
-        const hashedPassword = await bcrypt.hash(createUserDto.password, saltRounds);
-        const user = this.userRepository.create({
-            ...createUserDto,
-            password: hashedPassword,
-        });
-        const savedUser = await this.userRepository.save(user);
-        return UserMapper.toDto(savedUser);
-    }
-
     async findOne(id: string) {
         const user = await this.userRepository.findOne({ where: { id } });
         if (!user) {
             throw new NotFoundException(`User with ID "${id}" not found`);
         }
         return user;
+    }
+
+    async findByEmail(email: string) {
+        return this.userRepository.findOne({ where: { email } });
     }
 
     async update(id: string, updateUserDto: UpdateUserDto) {
