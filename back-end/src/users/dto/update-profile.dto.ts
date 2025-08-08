@@ -3,7 +3,6 @@ import { IsOptional, IsString, IsUrl, IsDateString, Length, IsNotEmpty } from 'c
 export class UpdateProfileDto {
     @IsOptional()
     @IsString()
-    @IsNotEmpty()
     @Length(1, 50)
     displayName?: string;
 
@@ -18,7 +17,7 @@ export class UpdateProfileDto {
     location?: string;
 
     @IsOptional()
-    @IsUrl()
+    @IsString()
     website?: string;
 
     @IsOptional()

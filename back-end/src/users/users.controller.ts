@@ -14,7 +14,7 @@ import {
     MaxFileSizeValidator,
     FileTypeValidator
 } from '@nestjs/common';
-import { FilesInterceptor } from '@nestjs/platform-express';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -34,26 +34,31 @@ export class UsersController {
         return this.usersService.getMyProfile(req.user.id);
     }
 
-    // Update logged-in user's profile
+    // Update logged-in user's profile (text only)
     @Put('me')
     @UseGuards(JwtAuthGuard)
-    @UseInterceptors(FilesInterceptor('files', 2))
     async updateMyProfile(
         @Request() req,
+        @Body() updateProfileDto: UpdateProfileDto
+    ): Promise<UserProfileDto> {
+        return this.usersService.updateProfile(req.user.id, updateProfileDto);
+    }
+
+    // Update logged-in user's profile with images
+    @Put('me/upload')
+    @UseGuards(JwtAuthGuard)
+    @UseInterceptors(FileFieldsInterceptor([
+        { name: 'profileImage', maxCount: 1 },
+        { name: 'coverImage', maxCount: 1 }
+    ]))
+    async updateMyProfileWithImages(
+        @Request() req,
         @Body() updateProfileDto: UpdateProfileDto,
-        @UploadedFiles(
-            new ParseFilePipe({
-                validators: [
-                    new MaxFileSizeValidator({ maxSize: 5 * 1024 * 1024 }), // 5MB
-                    new FileTypeValidator({ fileType: '.(jpg|jpeg|png|gif|webp)' }),
-                ],
-                fileIsRequired: false,
-            }),
-        ) files?: Express.Multer.File[]
+        @UploadedFiles() files: { profileImage?: Express.Multer.File[], coverImage?: Express.Multer.File[] }
     ): Promise<UserProfileDto> {
         const fileMap = {
-            profileImage: files?.find(f => f.fieldname === 'profileImage'),
-            coverImage: files?.find(f => f.fieldname === 'coverImage')
+            profileImage: files?.profileImage?.[0],
+            coverImage: files?.coverImage?.[0]
         };
 
         return this.usersService.updateProfile(req.user.id, updateProfileDto, fileMap);
@@ -70,19 +75,19 @@ export class UsersController {
     }
 
     // Get public profile of any user
-    @Get(':userId')
+    @Get('profile/:userId')
     async getPublicProfile(@Param('userId') userId: string): Promise<UserProfileDto> {
         return this.usersService.getPublicProfile(userId);
     }
 
     // Get follower count
-    @Get(':userId/followersCount')
+    @Get('profile/:userId/followersCount')
     async getFollowersCount(@Param('userId') userId: string): Promise<{ followersCount: number }> {
         return this.usersService.getFollowersCount(userId);
     }
 
     // Get following count
-    @Get(':userId/followingCount')
+    @Get('profile/:userId/followingCount')
     async getFollowingCount(@Param('userId') userId: string): Promise<{ followingCount: number }> {
         return this.usersService.getFollowingCount(userId);
     }

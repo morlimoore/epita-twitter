@@ -40,7 +40,7 @@ export class UsersService {
         return user;
     }
 
-    async findByEmail(email: string): Promise<User> {
+    async findByEmail(email: string): Promise<User | null> {
         return this.userRepository.findOne({ where: { email } });
     }
 
@@ -56,7 +56,7 @@ export class UsersService {
 
     async updateProfile(userId: string, updateProfileDto: UpdateProfileDto, files?: { profileImage?: Express.Multer.File, coverImage?: Express.Multer.File }): Promise<UserProfileDto> {
         const user = await this.findOne(userId);
-        
+
         // Check username uniqueness if username is being updated
         if (updateProfileDto.username && updateProfileDto.username !== user.username) {
             const existingUser = await this.userRepository.findOne({ where: { username: updateProfileDto.username } });
@@ -96,7 +96,7 @@ export class UsersService {
 
     async changePassword(userId: string, changePasswordDto: ChangePasswordDto): Promise<{ message: string }> {
         const user = await this.findOne(userId);
-        
+
         // Verify current password
         const isCurrentPasswordValid = await bcrypt.compare(changePasswordDto.currentPassword, user.password);
         if (!isCurrentPasswordValid) {
@@ -105,7 +105,7 @@ export class UsersService {
 
         // Hash new password
         const hashedNewPassword = await bcrypt.hash(changePasswordDto.newPassword, 10);
-        
+
         // Update password
         user.password = hashedNewPassword;
         await this.userRepository.save(user);
@@ -130,7 +130,7 @@ export class UsersService {
 
     async remove(id: string): Promise<void> {
         const user = await this.findOne(id);
-        
+
         // Delete profile and cover images
         if (user.profileImageUrl) {
             await this.fileUploadService.deleteFile(user.profileImageUrl);
@@ -138,7 +138,7 @@ export class UsersService {
         if (user.coverImageUrl) {
             await this.fileUploadService.deleteFile(user.coverImageUrl);
         }
-        
+
         await this.userRepository.delete(id);
     }
 
