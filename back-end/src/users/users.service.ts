@@ -1,9 +1,14 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable, NotFoundException, ConflictException, UnauthorizedException, BadRequestException } from "@nestjs/common";
 import { UpdateUserDto } from "./dto/update-user.dto";
+import { UpdateProfileDto } from "./dto/update-profile.dto";
+import { ChangePasswordDto } from "./dto/change-password.dto";
+import { UserProfileDto } from "./dto/user-profile.dto";
 import { InjectRepository } from "@nestjs/typeorm";
 import { DataSource, Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { User } from "./entities/user.entity";
+import { FileUploadService } from "./file-upload.service";
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class UsersService {
@@ -13,12 +18,13 @@ export class UsersService {
         private readonly userRepository: Repository<User>,
         private readonly dataSource: DataSource,
         private readonly configService: ConfigService,
+        private readonly fileUploadService: FileUploadService,
     ) {
         const databaseHost = this.configService.get<string>('DATABASE_HOST');
         console.log(databaseHost);
     }
 
-    async findOne(id: string) {
+    async findOne(id: string): Promise<User> {
         const user = await this.userRepository.findOne({ where: { id } });
         if (!user) {
             throw new NotFoundException(`User with ID "${id}" not found`);
@@ -26,17 +32,131 @@ export class UsersService {
         return user;
     }
 
-    async findByEmail(email: string) {
+    async findByUsername(username: string): Promise<User> {
+        const user = await this.userRepository.findOne({ where: { username } });
+        if (!user) {
+            throw new NotFoundException(`User with username "${username}" not found`);
+        }
+        return user;
+    }
+
+    async findByEmail(email: string): Promise<User> {
         return this.userRepository.findOne({ where: { email } });
     }
 
-    async update(id: string, updateUserDto: UpdateUserDto) {
+    async getMyProfile(userId: string): Promise<UserProfileDto> {
+        const user = await this.findOne(userId);
+        return this.mapToProfileDto(user);
+    }
+
+    async getPublicProfile(userId: string): Promise<UserProfileDto> {
+        const user = await this.findOne(userId);
+        return this.mapToProfileDto(user);
+    }
+
+    async updateProfile(userId: string, updateProfileDto: UpdateProfileDto, files?: { profileImage?: Express.Multer.File, coverImage?: Express.Multer.File }): Promise<UserProfileDto> {
+        const user = await this.findOne(userId);
+        
+        // Check username uniqueness if username is being updated
+        if (updateProfileDto.username && updateProfileDto.username !== user.username) {
+            const existingUser = await this.userRepository.findOne({ where: { username: updateProfileDto.username } });
+            if (existingUser) {
+                throw new ConflictException('Username already exists');
+            }
+        }
+
+        // Handle file uploads
+        if (files?.profileImage) {
+            // Delete old profile image if exists
+            if (user.profileImageUrl) {
+                await this.fileUploadService.deleteFile(user.profileImageUrl);
+            }
+            user.profileImageUrl = await this.fileUploadService.uploadFile(files.profileImage, userId, 'profile');
+        }
+
+        if (files?.coverImage) {
+            // Delete old cover image if exists
+            if (user.coverImageUrl) {
+                await this.fileUploadService.deleteFile(user.coverImageUrl);
+            }
+            user.coverImageUrl = await this.fileUploadService.uploadFile(files.coverImage, userId, 'cover');
+        }
+
+        // Update profile fields
+        if (updateProfileDto.displayName !== undefined) user.displayName = updateProfileDto.displayName;
+        if (updateProfileDto.bio !== undefined) user.bio = updateProfileDto.bio;
+        if (updateProfileDto.location !== undefined) user.location = updateProfileDto.location;
+        if (updateProfileDto.website !== undefined) user.website = updateProfileDto.website;
+        if (updateProfileDto.dateOfBirth !== undefined) user.dateOfBirth = new Date(updateProfileDto.dateOfBirth);
+        if (updateProfileDto.username !== undefined) user.username = updateProfileDto.username;
+
+        await this.userRepository.save(user);
+        return this.mapToProfileDto(user);
+    }
+
+    async changePassword(userId: string, changePasswordDto: ChangePasswordDto): Promise<{ message: string }> {
+        const user = await this.findOne(userId);
+        
+        // Verify current password
+        const isCurrentPasswordValid = await bcrypt.compare(changePasswordDto.currentPassword, user.password);
+        if (!isCurrentPasswordValid) {
+            throw new UnauthorizedException('Current password is incorrect');
+        }
+
+        // Hash new password
+        const hashedNewPassword = await bcrypt.hash(changePasswordDto.newPassword, 10);
+        
+        // Update password
+        user.password = hashedNewPassword;
+        await this.userRepository.save(user);
+
+        return { message: 'Password changed successfully' };
+    }
+
+    async getFollowersCount(userId: string): Promise<{ followersCount: number }> {
+        const user = await this.findOne(userId);
+        return { followersCount: user.followersCount };
+    }
+
+    async getFollowingCount(userId: string): Promise<{ followingCount: number }> {
+        const user = await this.findOne(userId);
+        return { followingCount: user.followingCount };
+    }
+
+    async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {
         await this.userRepository.update(id, updateUserDto);
         return this.findOne(id);
     }
 
-    async remove(id: string) {
-        return this.userRepository.delete(id);
+    async remove(id: string): Promise<void> {
+        const user = await this.findOne(id);
+        
+        // Delete profile and cover images
+        if (user.profileImageUrl) {
+            await this.fileUploadService.deleteFile(user.profileImageUrl);
+        }
+        if (user.coverImageUrl) {
+            await this.fileUploadService.deleteFile(user.coverImageUrl);
+        }
+        
+        await this.userRepository.delete(id);
     }
 
+    private mapToProfileDto(user: User): UserProfileDto {
+        return {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            displayName: user.displayName,
+            bio: user.bio,
+            location: user.location,
+            website: user.website,
+            dateOfBirth: user.dateOfBirth,
+            profileImageUrl: user.profileImageUrl,
+            coverImageUrl: user.coverImageUrl,
+            dateJoined: user.dateJoined,
+            followersCount: user.followersCount,
+            followingCount: user.followingCount,
+        };
+    }
 }
