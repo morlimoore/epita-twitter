@@ -2,12 +2,18 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
-import { TimeoutInterceptor } from './common/interceptors/timeout.interceptor';
-import { ResponseInterceptor } from './common/interceptors/response.interceptor';
+// import { TimeoutInterceptor } from './common/interceptors/timeout.interceptor';
+// import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     logger: ['log', 'error', 'warn', 'debug', 'verbose'],
+  });
+
+  // Enable CORS
+  app.enableCors({
+    origin: 'http://localhost:3000',
+    credentials: true,
   });
 
   app.useGlobalPipes(
@@ -23,12 +29,14 @@ async function bootstrap() {
 
   app.useGlobalFilters(new AllExceptionsFilter());
 
-  app.useGlobalInterceptors(
-    new TimeoutInterceptor(),
-    new ResponseInterceptor(),
-  );
+  // app.useGlobalInterceptors(
+  //   new TimeoutInterceptor(),
+  //   new ResponseInterceptor(),
+  // );
 
-  await app.listen(process.env.PORT ?? 3000);
+  const port = process.env.PORT || 3001;
+  await app.listen(port);
+  console.log(`Application is running on: http://localhost:${port}`);
 }
 bootstrap();
 

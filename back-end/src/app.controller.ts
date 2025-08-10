@@ -3,11 +3,16 @@ import { AppService } from './app.service';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 
 @Controller()
-@UseGuards(JwtAuthGuard)
 export class AppController {
   constructor(private readonly appService: AppService) { }
 
+  @Get('health')
+  getHealth(): string {
+    return 'Backend API is running';
+  }
+
   @Get()
+  @UseGuards(JwtAuthGuard)
   getHello(): string {
     return this.appService.getHello();
   }

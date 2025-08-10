@@ -4,6 +4,8 @@ import { AuthController } from './auth.controller';
 import { PassportModule } from '@nestjs/passport';
 import { JwtModule } from '@nestjs/jwt';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { KeycloakStrategy } from './strategies/keycloak.strategy';
+import { KeycloakJwtStrategy } from './strategies/keycloak-jwt.strategy';
 import { UsersModule } from '../users/users.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { UserMapper } from '../users/mappers/user.mapper';
@@ -24,7 +26,7 @@ import { User } from '../users/entities/user.entity';
         }),
         TypeOrmModule.forFeature([User]),
     ],
-    providers: [AuthService, JwtStrategy, UserMapper],
+    providers: [AuthService, JwtStrategy, KeycloakStrategy, KeycloakJwtStrategy, UserMapper],
     controllers: [AuthController],
     exports: [AuthService],
 })

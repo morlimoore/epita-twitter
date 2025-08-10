@@ -59,6 +59,18 @@
   background-color: #7371FC;
 }
 
+.submit-btn:disabled {
+  background-color: #a8d5f2;
+  cursor: not-allowed;
+}
+
+.error-message {
+  color: #e0245e;
+  font-size: 14px;
+  margin-top: 8px;
+  text-align: center;
+}
+
 .switch-auth {
   margin-top: 20px;
   color: #657786;
