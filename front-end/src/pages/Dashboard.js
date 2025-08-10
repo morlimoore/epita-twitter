@@ -3,26 +3,263 @@ import './Dashboard.css';
 import apiService from '../services/api';
 
 // Page Components
-const HomePage = () => (
-  <div className="page-content">
-    <div className="tweet-composer">
-      <textarea 
-        placeholder="What's happening?"
-        className="tweet-input"
-      />
-      <button className="tweet-btn">Tweet</button>
-    </div>
+const HomePage = ({ user }) => {
+  const [postContent, setPostContent] = useState('');
+  const [activeTab, setActiveTab] = useState('for-you');
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState(null);
 
-    <div className="feed">
-      <div className="feed-header">
-        <h2>Home</h2>
+  const handleImageUpload = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onload = (e) => setImagePreview(e.target.result);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handlePost = () => {
+    if (postContent.trim() || selectedImage) {
+      // TODO: Implement post creation API call
+      console.log('Creating post:', { 
+        content: postContent, 
+        image: selectedImage,
+        location: selectedLocation 
+      });
+      setPostContent('');
+      setSelectedImage(null);
+      setImagePreview(null);
+      setSelectedLocation(null);
+    }
+  };
+
+  const handleEmojiClick = (emoji) => {
+    setPostContent(prev => prev + emoji);
+    setShowEmojiPicker(false);
+  };
+
+  const handleLocationClick = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          setSelectedLocation({ latitude, longitude });
+          setShowLocationPicker(false);
+        },
+        (error) => {
+          console.error('Error getting location:', error);
+          alert('Unable to get your location. Please check your browser settings.');
+        }
+      );
+    } else {
+      alert('Geolocation is not supported by this browser.');
+    }
+  };
+
+  const isPostButtonDisabled = !postContent.trim() && !selectedImage;
+
+  // Basic emoji list for demo
+  const commonEmojis = ['😀', '😂', '❤️', '👍', '🎉', '🔥', '😍', '🤔', '😢', '😡'];
+
+  return (
+    <div className="home-page">
+      {/* Navigation Tabs */}
+      <div className="home-navigation">
+        <button 
+          className={`nav-tab ${activeTab === 'for-you' ? 'active' : ''}`}
+          onClick={() => setActiveTab('for-you')}
+        >
+          For you
+        </button>
+        <button 
+          className={`nav-tab ${activeTab === 'following' ? 'active' : ''}`}
+          onClick={() => setActiveTab('following')}
+        >
+          Following
+        </button>
       </div>
-      <div className="tweets-container">
-        <p className="no-tweets">No tweets yet. Be the first to tweet!</p>
+
+      {/* Post Composer */}
+      <div className="post-composer">
+        <div className="composer-header">
+          <div className="user-avatar">
+            <div className="avatar-placeholder">
+              {user?.username?.substring(0, 2).toUpperCase() || 'My'}
+            </div>
+          </div>
+          <div className="composer-content">
+            <textarea
+              className="post-input"
+              placeholder="What's happening?"
+              value={postContent}
+              onChange={(e) => setPostContent(e.target.value)}
+              rows="3"
+            />
+            
+            {/* Image Preview */}
+            {imagePreview && (
+              <div className="image-preview">
+                <img src={imagePreview} alt="Preview" />
+                <button 
+                  className="remove-image"
+                  onClick={() => {
+                    setSelectedImage(null);
+                    setImagePreview(null);
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+            )}
+
+            {/* Location Display */}
+            {selectedLocation && (
+              <div className="location-display">
+                📍 Location added
+                <button 
+                  className="remove-location"
+                  onClick={() => setSelectedLocation(null)}
+                >
+                  ×
+                </button>
+              </div>
+            )}
+
+            {/* Post Actions */}
+            <div className="post-actions">
+              <div className="action-buttons">
+                                  <label className="action-button" title="Image">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      style={{ display: 'none' }}
+                    />
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="#1d9bf0">
+                      <path d="M3 5.5C3 4.119 4.119 3 5.5 3h13C19.881 3 21 4.119 21 5.5v13c0 1.381-1.119 2.5-2.5 2.5h-13C4.119 21 3 19.881 3 18.5v-13zM5.5 5c-.276 0-.5.224-.5.5v9.086l3-3 3-3 5-5 3 3V5.5c0-.276-.224-.5-.5-.5h-13zM19 15.414l-3-3-5 5-3-3-3 3V18.5c0 .276.224.5.5.5h13c.276 0 .5-.224.5-.5v-3.086zM9.75 7C8.784 7 8 7.784 8 8.75s.784 1.75 1.75 1.75 1.75-.784 1.75-1.75S10.716 7 9.75 7z"/>
+                    </svg>
+                  </label>
+                  
+                  <button 
+                    className="action-button" 
+                    title="Emoji"
+                    onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="#1d9bf0">
+                      <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/>
+                    </svg>
+                  </button>
+                  
+                  <button 
+                    className="action-button" 
+                    title="Location"
+                    onClick={handleLocationClick}
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="#1d9bf0">
+                      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                    </svg>
+                  </button>
+              </div>
+              
+              <button 
+                className={`post-button ${isPostButtonDisabled ? 'disabled' : ''}`}
+                onClick={handlePost}
+                disabled={isPostButtonDisabled}
+              >
+                Post
+              </button>
+            </div>
+
+            {/* Emoji Picker */}
+            {showEmojiPicker && (
+              <div className="emoji-picker">
+                <div className="emoji-grid">
+                  {commonEmojis.map((emoji, index) => (
+                    <button
+                      key={index}
+                      className="emoji-button"
+                      onClick={() => handleEmojiClick(emoji)}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
+
+       {/* Feed */}
+       <div className="feed">
+         <div className="feed-header">
+           <span className="show-posts-link">Posts will appear here</span>
+         </div>
+                   <div className="tweets-container">
+            {/* Test Post - MrBeast */}
+            <div className="tweet">
+              <div className="tweet-avatar">
+                <div className="avatar-placeholder">MB</div>
+              </div>
+              <div className="tweet-content">
+                <div className="tweet-header">
+                  <span className="tweet-author">MrBeast</span>
+                  <svg className="verified-badge" width="16" height="16" viewBox="0 0 24 24" fill="#1d9bf0">
+                    <path d="M22.5 12.5c0-1.58-.875-2.95-2.148-3.6.154-.435.238-.905.238-1.4 0-2.21-1.71-3.998-3.818-3.998-.47 0-.92.084-1.336.25C14.818 2.415 13.51 1.5 12 1.5s-2.816.917-3.437 2.25c-.415-.165-.866-.25-1.336-.25-2.11 0-3.818 1.79-3.818 4 0 .494.083.964.237 1.4-1.272.65-2.147 2.018-2.147 3.6 0 1.495.782 2.798 1.942 3.486-.02.17-.032.34-.032.514 0 2.21 1.708 4 3.818 4 .47 0 .92-.086 1.335-.25.62 1.334 1.926 2.25 3.437 2.25 1.512 0 2.818-.916 3.437-2.25.415.163.865.248 1.336.248 2.11 0 3.818-1.79 3.818-4 0-.174-.012-.344-.033-.513 1.158-.687 1.943-1.99 1.943-3.484zm-6.616-3.334l-4.334 6.5c-.145.217-.382.334-.625.334-.143 0-.288-.04-.416-.126l-.115-.094-2.415-2.415c-.293-.293-.293-.768 0-1.06s.768-.294 1.06 0l1.77 1.767 3.825-5.74c.23-.345.696-.436 1.04-.207.346.23.44.696.21 1.04z"/>
+                  </svg>
+                  <span className="tweet-handle">@MrBeast</span>
+                  <span className="tweet-time">2h</span>
+                </div>
+                <div className="tweet-text">
+                  Just finished filming the most insane challenge yet! 🤯 Can't wait to share it with you all. This one is going to break the internet! 💪
+                </div>
+                <div className="tweet-actions">
+                  <button className="action-btn">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="#536471">
+                      <path d="M1.751 10c0-4.42 3.584-8 8.005-8h4.366c4.49 0 8.129 3.64 8.129 8.13 0 2.96-1.607 5.68-4.196 7.11l-2.26 1.23c-.51.28-1.1.28-1.61 0l-2.26-1.23C4.307 15.68 2.751 12.96 2.751 10zM8 8c-1.657 0-3 1.343-3 3s1.343 3 3 3 3-1.343 3-3-1.343-3-3-3zm3.5 6c-.828 0-1.5-.672-1.5-1.5S10.672 11 11.5 11s1.5.672 1.5 1.5S12.328 17 11.5 17z"/>
+                    </svg>
+                    <span>2.4K</span>
+                  </button>
+                  <button className="action-btn">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="#536471">
+                      <path d="M4.5 3.88l4.432 4.14-1.364 1.46L5.5 6.55V16c0 1.1.9 2 2 2h13v-2H7.5V6.55l-2.068 1.93-1.364-1.46L4.5 3.88zM16 16l-4 4-4-4h8z"/>
+                    </svg>
+                    <span>892</span>
+                  </button>
+                  <button className="action-btn">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="#536471">
+                      <path d="M16.697 5.5c-1.222-.06-2.679.51-3.89 2.16l-.805 1.09-.806-1.09A3.902 3.902 0 0 0 11.303 5.5c-1.243 0-2.4.52-3.193 1.38A3.927 3.927 0 0 0 6.5 9.5c0 1.243.52 2.4 1.38 3.193A3.927 3.927 0 0 0 9.5 14.5c1.243 0 2.4-.52 3.193-1.38A3.927 3.927 0 0 0 14.5 9.5c0-1.243-.52-2.4-1.38-3.193A3.927 3.927 0 0 0 11.303 5.5zM9.5 12.5c-.828 0-1.5-.672-1.5-1.5s.672-1.5 1.5-1.5 1.5.672 1.5 1.5-.672 1.5-1.5 1.5z"/>
+                    </svg>
+                    <span>45.2K</span>
+                  </button>
+                  <button className="action-btn">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="#536471">
+                      <path d="M8.75 21V3h2v18h-2zM18 21V8.5h2V21h-2zM4 21l.004-10h2L6 21H4zm9.248 0v-7h2v7h-2z"/>
+                    </svg>
+                    <span>12.8M</span>
+                  </button>
+                  <button className="action-btn">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="#536471">
+                      <path d="M4 4.5C4 3.12 5.119 2 6.5 2h11C18.881 2 20 3.12 20 4.5v18.44l-8-5.71-8 5.71V4.5zM6.5 4c-.276 0-.5.22-.5.5v14.56l6-4.29 6 4.29V4.5c0-.28-.224-.5-.5-.5h-11z"/>
+                    </svg>
+                  </button>
+                  <button className="action-btn">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="#536471">
+                      <path d="M12 2.59l5.7 5.7-1.41 1.42L13 6.41V16h-2V6.41l-3.3 3.3-1.41-1.42L12 2.59zM21 15l-.02 3.51c0 1.38-1.12 2.49-2.5 2.49H5.5C4.11 21 3 19.88 3 18.5V15h2v3.5c0 .28.22.5.5.5h12.98c.28 0 .5-.22.5-.5L19 15h2z"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+       </div>
     </div>
-  </div>
-);
+  );
+};
 
 const NotificationsPage = () => (
   <div className="page-content">
@@ -158,7 +395,7 @@ const Dashboard = ({ user, onLogout }) => {
   const renderPageContent = () => {
     switch (activeTab) {
       case 'home':
-        return <HomePage />;
+        return <HomePage user={user} />;
       case 'notifications':
         return <NotificationsPage />;
       case 'profile':
@@ -166,7 +403,7 @@ const Dashboard = ({ user, onLogout }) => {
       case 'settings':
         return <SettingsPage />;
       default:
-        return <HomePage />;
+        return <HomePage user={user} />;
     }
   };
 
@@ -186,7 +423,7 @@ const Dashboard = ({ user, onLogout }) => {
           <div className="drawer-header">
             <div className="logo">
               <svg width="32" height="32" viewBox="0 0 24 24" fill="#1da1f2">
-                <path d="M23.643 4.937c-.835.37-1.732.62-2.675.733.962-.576 1.7-1.49 2.048-2.578-.9.534-1.897.922-2.958 1.13-.85-.904-2.06-1.47-3.4-1.47-2.572 0-4.658 2.086-4.658 4.66 0 .364.042.718.12 1.06-3.873-.195-7.304-2.05-9.602-4.868-.4.69-.63 1.49-.63 2.342 0 1.616.823 3.043 2.072 3.878-.764-.025-1.482-.234-2.11-.583v.06c0 2.257 1.605 4.14 3.737 4.568-.392.106-.803.162-1.227.162-.3 0-.593-.028-.877-.082.593 1.85 2.313 3.198 4.352 3.234-1.595 1.25-3.604 1.995-5.786 1.995-.376 0-.747-.022-1.112-.065 2.062 1.323 4.51 2.093 7.14 2.093 8.57 0 13.255-7.098 13.255-13.254 0-.2-.005-.402-.014-.602.91-.658 1.7-1.477 2.323-2.41z"/>
+                <path d="M23.643 4.937c-.835.37-1.732.62-2.675.733.962-.576 1.7-1.49 2.048-2.578-.9.534-1.897.922-2.958 1.13-.85-.904-2.06-1.47-3.4-1.47-2.572 0-4.658 2.086-4.658 4.66 0 .364.042.718.12 1.06-3.873-.195-7.304-2.05-9.602-4.868-.4.69-.63 1.49-.63 2.342 0 1.616.823 3.043 2.072 3.878-.02.17-.032.34-.032.514 0 2.21 1.708 4 3.818 4 .47 0 .92-.086 1.335-.25.62 1.334 1.926 2.25 3.437 2.25 1.512 0 2.818-.916 3.437-2.25.415.163.865.248 1.336.248 2.11 0 3.818-1.79 3.818-4 0-.174-.012-.344-.033-.513 1.158-.687 1.943-1.99 1.943-3.484zm-6.616-3.334l-4.334 6.5c-.145.217-.382.334-.625.334-.143 0-.288-.04-.416-.126l-.115-.094-2.415-2.415c-.293-.293-.293-.768 0-1.06s.768-.294 1.06 0l1.77 1.767 3.825-5.74c.23-.345.696-.436 1.04-.207.346.23.44.696.21 1.04z"/>
               </svg>
               <span>Epita Twitter</span>
             </div>
