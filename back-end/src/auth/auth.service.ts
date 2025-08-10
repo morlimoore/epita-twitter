@@ -26,7 +26,18 @@ export class AuthService {
             password: hashedPassword,
         });
         const savedUser = await this.userRepository.save(user);
-        return this.userMapper.toDto(savedUser);
+        
+        // Generate JWT token for the new user
+        const payload = {
+            sub: savedUser.id,
+            username: savedUser.username,
+            email: savedUser.email
+        };
+        
+        return {
+            access_token: this.jwtService.sign(payload),
+            user: this.userMapper.toDto(savedUser),
+        };
     }
 
     async validateUser(email: string, password: string) {
@@ -46,6 +57,7 @@ export class AuthService {
         };
         return {
             access_token: this.jwtService.sign(payload),
+            user: this.userMapper.toDto(user),
         };
     }
 }

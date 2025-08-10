@@ -1,11 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './SplashScreen.css';
 import Login from './Login';
 import Signup from './Signup';
+import apiService from '../services/api';
 
-const SplashScreen = () => {
+const SplashScreen = ({ onAuthenticated }) => {
   const [showLogin, setShowLogin] = useState(false);
   const [showSignup, setShowSignup] = useState(false);
+
+  useEffect(() => {
+    // Check if user is already authenticated
+    if (apiService.isAuthenticated()) {
+      const user = apiService.getCurrentUser();
+      onAuthenticated && onAuthenticated(user);
+    }
+  }, [onAuthenticated]);
+
+  const handleLoginSuccess = (user) => {
+    onAuthenticated && onAuthenticated(user);
+  };
+
+  const handleSignupSuccess = (user) => {
+    onAuthenticated && onAuthenticated(user);
+  };
 
   return (
     <div className="splash-container">
@@ -42,6 +59,7 @@ const SplashScreen = () => {
                 setShowLogin(false);
                 setShowSignup(true);
               }}
+              onLoginSuccess={handleLoginSuccess}
             />
           )}
 
@@ -52,6 +70,7 @@ const SplashScreen = () => {
                 setShowSignup(false);
                 setShowLogin(true);
               }}
+              onSignupSuccess={handleSignupSuccess}
             />
           )}
         </div>

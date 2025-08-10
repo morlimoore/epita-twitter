@@ -1,14 +1,30 @@
 import React, { useState } from 'react';
 import './Signup.css';
+import apiService from '../services/api';
 
-const Signup = ({ onClose, switchToLogin }) => {
+const Signup = ({ onClose, switchToLogin, onSignupSuccess }) => {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Signup submitted:', { username, email, password });
+    setLoading(true);
+    setError('');
+
+    try {
+      const response = await apiService.register({ username, email, password });
+      console.log('Signup successful:', response);
+      onSignupSuccess && onSignupSuccess(response.user);
+      onClose();
+    } catch (err) {
+      console.error('Signup failed:', err);
+      setError(err.message || 'Signup failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -43,7 +59,10 @@ const Signup = ({ onClose, switchToLogin }) => {
             required
           />
         </div>
-        <button type="submit" className="submit-btn">Sign up</button>
+        <button type="submit" className="submit-btn" disabled={loading}>
+          {loading ? 'Creating account...' : 'Sign up'}
+        </button>
+        {error && <p className="error-message">{error}</p>}
       </form>
       <p className="switch-auth">
         Already have an account?{' '}

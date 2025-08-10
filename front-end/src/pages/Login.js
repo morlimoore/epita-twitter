@@ -1,13 +1,29 @@
 import React, { useState } from 'react';
 import './Login.css';
+import apiService from '../services/api';
 
-const Login = ({ onClose, switchToSignup }) => {
+const Login = ({ onClose, switchToSignup, onLoginSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Login submitted:', { email, password });
+    setLoading(true);
+    setError('');
+
+    try {
+      const response = await apiService.login(email, password);
+      console.log('Login successful:', response);
+      onLoginSuccess && onLoginSuccess(response.user);
+      onClose();
+    } catch (err) {
+      console.error('Login failed:', err);
+      setError(err.message || 'Login failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -33,7 +49,10 @@ const Login = ({ onClose, switchToSignup }) => {
             required
           />
         </div>
-        <button type="submit" className="submit-btn">Log in</button>
+        <button type="submit" className="submit-btn" disabled={loading}>
+          {loading ? 'Logging in...' : 'Log in'}
+        </button>
+        {error && <p className="error-message">{error}</p>}
       </form>
       <p className="switch-auth">
         Don't have an account?{' '}
