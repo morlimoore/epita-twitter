@@ -113,16 +113,6 @@ export class UsersService {
         return { message: 'Password changed successfully' };
     }
 
-    async getFollowersCount(userId: string): Promise<{ followersCount: number }> {
-        const user = await this.findOne(userId);
-        return { followersCount: user.followersCount };
-    }
-
-    async getFollowingCount(userId: string): Promise<{ followingCount: number }> {
-        const user = await this.findOne(userId);
-        return { followingCount: user.followingCount };
-    }
-
     async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {
         await this.userRepository.update(id, updateUserDto);
         return this.findOne(id);

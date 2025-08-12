@@ -80,17 +80,17 @@ export class UsersController {
         return this.usersService.getPublicProfile(userId);
     }
 
-    // Get follower count
-    @Get('profile/:userId/followersCount')
-    async getFollowersCount(@Param('userId') userId: string): Promise<{ followersCount: number }> {
-        return this.usersService.getFollowersCount(userId);
-    }
+    // // Get follower count
+    // @Get('profile/:userId/followersCount')
+    // async getFollowersCount(@Param('userId') userId: string): Promise<{ followersCount: number }> {
+    //     return this.usersService.getFollowersCount(userId);
+    // }
 
-    // Get following count
-    @Get('profile/:userId/followingCount')
-    async getFollowingCount(@Param('userId') userId: string): Promise<{ followingCount: number }> {
-        return this.usersService.getFollowingCount(userId);
-    }
+    // // Get following count
+    // @Get('profile/:userId/followingCount')
+    // async getFollowingCount(@Param('userId') userId: string): Promise<{ followingCount: number }> {
+    //     return this.usersService.getFollowingCount(userId);
+    // }
 
     // Legacy endpoints (keeping for backward compatibility)
     @Get(':id')

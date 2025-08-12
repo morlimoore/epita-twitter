@@ -1,4 +1,5 @@
-import { Column, Entity, PrimaryGeneratedColumn, Unique, CreateDateColumn } from 'typeorm';
+import { Column, Entity, PrimaryGeneratedColumn, Unique, CreateDateColumn, OneToMany } from 'typeorm';
+import { Follow } from '../../follows/entities/follow.entity';
 
 @Entity('users')
 @Unique("UQ_Username", ['username'])
@@ -46,4 +47,10 @@ export class User {
 
     @Column({ default: 0 })
     followingCount: number;
+
+    @OneToMany(() => Follow, follow => follow.follower)
+    following: Follow[];
+
+    @OneToMany(() => Follow, follow => follow.following)
+    followers: Follow[];
 }

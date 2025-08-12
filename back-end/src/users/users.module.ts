@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { UsersController } from "./users.controller";
 import { UsersService } from "./users.service";
 import { FileUploadService } from "./file-upload.service";
@@ -10,7 +10,8 @@ import { UserMapper } from './mappers/user.mapper';
 @Module({
   imports: [
     TypeOrmModule.forFeature([User]),
-    ConfigModule,],
+    ConfigModule
+  ],
   controllers: [UsersController],
   providers: [UsersService, FileUploadService, UserMapper],
   exports: [UsersService, FileUploadService, UserMapper],
