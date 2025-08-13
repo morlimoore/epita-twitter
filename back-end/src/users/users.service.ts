@@ -7,7 +7,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { DataSource, Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { User } from "./entities/user.entity";
-import { FileUploadService } from "./file-upload.service";
+import { CloudinaryService } from "./cloudinary.service";
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -18,7 +18,7 @@ export class UsersService {
         private readonly userRepository: Repository<User>,
         private readonly dataSource: DataSource,
         private readonly configService: ConfigService,
-        private readonly fileUploadService: FileUploadService,
+        private readonly cloudinaryService: CloudinaryService,
     ) {
         const databaseHost = this.configService.get<string>('DATABASE_HOST');
         console.log(databaseHost);
@@ -69,17 +69,17 @@ export class UsersService {
         if (files?.profileImage) {
             // Delete old profile image if exists
             if (user.profileImageUrl) {
-                await this.fileUploadService.deleteFile(user.profileImageUrl);
+                await this.cloudinaryService.deleteFile(user.profileImageUrl);
             }
-            user.profileImageUrl = await this.fileUploadService.uploadFile(files.profileImage, userId, 'profile');
+            user.profileImageUrl = await this.cloudinaryService.uploadFile(files.profileImage, userId, 'profile');
         }
 
         if (files?.coverImage) {
             // Delete old cover image if exists
             if (user.coverImageUrl) {
-                await this.fileUploadService.deleteFile(user.coverImageUrl);
+                await this.cloudinaryService.deleteFile(user.coverImageUrl);
             }
-            user.coverImageUrl = await this.fileUploadService.uploadFile(files.coverImage, userId, 'cover');
+            user.coverImageUrl = await this.cloudinaryService.uploadFile(files.coverImage, userId, 'cover');
         }
 
         // Update profile fields
@@ -133,10 +133,10 @@ export class UsersService {
 
         // Delete profile and cover images
         if (user.profileImageUrl) {
-            await this.fileUploadService.deleteFile(user.profileImageUrl);
+            await this.cloudinaryService.deleteFile(user.profileImageUrl);
         }
         if (user.coverImageUrl) {
-            await this.fileUploadService.deleteFile(user.coverImageUrl);
+            await this.cloudinaryService.deleteFile(user.coverImageUrl);
         }
 
         await this.userRepository.delete(id);

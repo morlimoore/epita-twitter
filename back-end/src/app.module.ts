@@ -3,6 +3,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ConfigModule } from '@nestjs/config';
 import { UsersModule } from './users/users.module';
+import { TweetsModule } from './tweets/tweets.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import * as Joi from '@hapi/joi';
 import { AuthModule } from './auth/auth.module';
@@ -14,9 +15,13 @@ import { AuthModule } from './auth/auth.module';
         DATABASE_HOST: Joi.required(),
         DATABASE_PORT: Joi.number().default(5432),
         JWT_SECRET: Joi.string().required(),
+        CLOUDINARY_CLOUD_NAME: Joi.string().required(),
+        CLOUDINARY_API_KEY: Joi.string().required(),
+        CLOUDINARY_API_SECRET: Joi.string().required(),
       }),
     }),
     UsersModule,
+    TweetsModule,
     AuthModule,
     TypeOrmModule.forRoot({
       type: 'postgres',

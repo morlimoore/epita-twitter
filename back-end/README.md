@@ -1,98 +1,296 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Twitter Clone Backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+A complete Twitter clone backend built with NestJS, TypeORM, PostgreSQL, and Cloudinary.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## 🚀 Recent Updates
 
-## Description
+### **Cloudinary Integration (Image Storage)**
+- ✅ Replaced local file storage with Cloudinary cloud storage
+- ✅ Automatic image optimization and format conversion
+- ✅ Secure HTTPS URLs for all media
+- ✅ Organized storage structure by user ID
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+### **Tweets Functionality**
+- ✅ Complete CRUD operations for tweets
+- ✅ Media upload support (images & videos)
+- ✅ JWT authentication and authorization
+- ✅ Pagination and efficient data handling
+- ✅ Proper error handling and validation
 
-## Project setup
+## 🏗️ Architecture
 
-```bash
-$ npm install
+```
+src/
+├── auth/           # Authentication & JWT
+├── users/          # User management & profiles
+├── tweets/         # Tweet functionality
+├── common/         # Shared utilities
+└── main.ts         # Application entry point
 ```
 
-## Compile and run the project
+## 🛠️ Tech Stack
 
-```bash
-# development
-$ npm run start
+- **Framework**: NestJS
+- **Database**: PostgreSQL with TypeORM
+- **Authentication**: JWT with Passport
+- **File Storage**: Cloudinary
+- **Validation**: class-validator
+- **Language**: TypeScript
 
-# watch mode
-$ npm run start:dev
+## 📋 Prerequisites
 
-# production mode
-$ npm run start:prod
+- Node.js (v16 or higher)
+- PostgreSQL database
+- Cloudinary account
+
+## ⚙️ Environment Setup
+
+Create a `.env` file in the `back-end` directory:
+
+```env
+# Database Configuration
+DATABASE_HOST=localhost
+DATABASE_PORT=5432
+DATABASE_USERNAME=your_username
+DATABASE_PASSWORD=your_password
+DATABASE_NAME=your_database
+
+# JWT Configuration
+JWT_SECRET=your_jwt_secret_here
+
+# Cloudinary Configuration
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
 ```
 
-## Run tests
+## 🚀 Installation & Setup
 
-```bash
-# unit tests
-$ npm run test
+1. **Install dependencies:**
+   ```bash
+   npm install
+   ```
 
-# e2e tests
-$ npm run test:e2e
+2. **Set up your environment variables** (see above)
 
-# test coverage
-$ npm run test:cov
+3. **Start the development server:**
+   ```bash
+   npm run start:dev
+   ```
+
+4. **Build for production:**
+   ```bash
+   npm run build
+   ```
+
+## 🔐 Authentication Endpoints
+
+### Register User
+```
+POST /auth/register
+Body: { email, password, username, displayName }
 ```
 
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+### Login User
+```
+POST /auth/login
+Body: { email, password }
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## 👤 User Profile Endpoints
 
-## Resources
+### Update Profile with Images
+```
+PUT /api/users/me/upload
+Headers: Authorization: Bearer {JWT_TOKEN}
+Body: FormData (profileImage, coverImage, displayName, bio, etc.)
+```
 
-Check out a few resources that may come in handy when working with NestJS:
+### Get Profile
+```
+GET /api/users/me
+Headers: Authorization: Bearer {JWT_TOKEN}
+```
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+## 🐦 Tweet Endpoints
 
-## Support
+### Create Tweet
+```
+POST /api/tweets
+Headers: Authorization: Bearer {JWT_TOKEN}
+Body: FormData (content, media)
+```
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+### Get User's Tweets
+```
+GET /api/tweets/user/{userId}
+Query: page, limit (optional)
+```
 
-## Stay in touch
+### Get Single Tweet
+```
+GET /api/tweets/{tweetId}
+```
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+### Update Tweet
+```
+PUT /api/tweets/{tweetId}
+Headers: Authorization: Bearer {JWT_TOKEN}
+Body: { content }
+```
 
-## License
+### Delete Tweet
+```
+DELETE /api/tweets/{tweetId}
+Headers: Authorization: Bearer {JWT_TOKEN}
+```
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+### Get All Tweets
+```
+GET /api/tweets
+```
+
+### Get My Tweets
+```
+GET /api/tweets/me
+Headers: Authorization: Bearer {JWT_TOKEN}
+Query: page, limit (optional)
+```
+
+## 📁 File Upload Features
+
+### Supported Media Types
+- **Images**: JPEG, PNG, GIF, WebP
+- **Videos**: MP4, AVI, MOV, WMV
+- **Max Size**: 10MB
+
+### Cloudinary Storage Structure
+```
+twitter-clone/
+├── {userId}/
+│   ├── profile_{timestamp}.jpg
+│   ├── cover_{timestamp}.jpg
+│   └── tweets/
+│       └── {tweetId}/
+│           └── media_{timestamp}.jpg
+```
+
+## 🔒 Security Features
+
+- JWT-based authentication
+- User ownership validation for tweets
+- Input sanitization and validation
+- Secure file upload validation
+- Automatic media cleanup on deletion
+
+## 📊 Database Schema
+
+### Users Table
+- id (UUID, Primary Key)
+- email, username, password
+- displayName, bio, location, website
+- profileImageUrl, coverImageUrl
+- dateJoined, followersCount, followingCount
+
+### Tweets Table
+- id (UUID, Primary Key)
+- content (text, max 280 chars)
+- mediaUrl, mediaType
+- type (text/media)
+- userId (Foreign Key to Users)
+- createdAt, likesCount, retweetsCount, repliesCount
+
+## 🧪 Testing
+
+### Run Tests
+```bash
+npm run test
+npm run test:e2e
+```
+
+### Build Check
+```bash
+npm run build
+```
+
+## 🚀 Deployment
+
+1. **Build the application:**
+   ```bash
+   npm run build
+   ```
+
+2. **Start production server:**
+   ```bash
+   npm run start:prod
+   ```
+
+## 📝 API Response Format
+
+All API responses follow this structure:
+```json
+{
+  "success": boolean,
+  "data": any,
+  "message": string,
+  "total": number (for list responses)
+}
+```
+
+## 🔧 Development
+
+### Code Structure
+- **Controllers**: Handle HTTP requests
+- **Services**: Business logic
+- **Entities**: Database models
+- **DTOs**: Data validation
+- **Mappers**: Entity transformations
+
+### Adding New Features
+1. Create entity in appropriate module
+2. Add DTOs for validation
+3. Implement service methods
+4. Create controller endpoints
+5. Update module configuration
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+1. **Database Connection Error**
+   - Check PostgreSQL is running
+   - Verify environment variables
+   - Check database credentials
+
+2. **Cloudinary Upload Fails**
+   - Verify Cloudinary credentials
+   - Check file size and type
+   - Ensure internet connection
+
+3. **JWT Authentication Fails**
+   - Check JWT_SECRET is set
+   - Verify token format
+   - Check token expiration
+
+## 📚 Additional Resources
+
+- [NestJS Documentation](https://docs.nestjs.com/)
+- [TypeORM Documentation](https://typeorm.io/)
+- [Cloudinary Documentation](https://cloudinary.com/documentation)
+- [PostgreSQL Documentation](https://www.postgresql.org/docs/)
+
+## 🤝 Contributing
+
+1. Create a feature branch
+2. Make your changes
+3. Add tests if applicable
+4. Submit a pull request
+
+## 📄 License
+
+This project is for educational purposes.
+
+---
+
+**Last Updated**: August 2024
+**Version**: 1.0.0
