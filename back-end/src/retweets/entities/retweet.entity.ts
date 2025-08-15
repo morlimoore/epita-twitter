@@ -3,7 +3,6 @@ import { User } from '../../users/entities/user.entity';
 import { Tweet } from '../../tweets/entities/tweet.entity';
 
 @Entity('retweets')
-@Unique(['tweet_id', 'user_id'], { name: 'unique_user_tweet_retweet' })
 export class Retweet {
     @PrimaryGeneratedColumn('uuid')
     id: string;
@@ -15,7 +14,7 @@ export class Retweet {
     user_id: string;
 
     @Column({ type: 'text', nullable: true })
-    comment: string;
+    comment: string | null;
 
     @CreateDateColumn()
     created_at: Date;

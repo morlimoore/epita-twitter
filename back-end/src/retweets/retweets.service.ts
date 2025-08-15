@@ -39,13 +39,12 @@ export class RetweetsService {
 
         // Check if user already retweeted this tweet (only if no comment)
         if (!createRetweetDto.comment) {
-            const existingRetweet = await this.retweetsRepository.findOne({
-                where: {
-                    tweet_id: createRetweetDto.tweet_id,
-                    user_id: userId,
-                    comment: null
-                }
-            });
+            const existingRetweet = await this.retweetsRepository
+                .createQueryBuilder('retweet')
+                .where('retweet.tweet_id = :tweetId', { tweetId: createRetweetDto.tweet_id })
+                .andWhere('retweet.user_id = :userId', { userId })
+                .andWhere('retweet.comment IS NULL')
+                .getOne();
 
             if (existingRetweet) {
                 throw new ConflictException('You have already retweeted this tweet');
