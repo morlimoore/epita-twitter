@@ -5,6 +5,7 @@ import { ConfigModule } from '@nestjs/config';
 import { UsersModule } from './users/users.module';
 import { TweetsModule } from './tweets/tweets.module';
 import { RepliesModule } from './replies/replies.module';
+import { RetweetsModule } from './retweets/retweets.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import * as Joi from '@hapi/joi';
 import { AuthModule } from './auth/auth.module';
@@ -24,6 +25,7 @@ import { AuthModule } from './auth/auth.module';
     UsersModule,
     TweetsModule,
     RepliesModule,
+    RetweetsModule,
     AuthModule,
     TypeOrmModule.forRoot({
       type: 'postgres',
