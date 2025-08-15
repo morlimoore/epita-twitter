@@ -26,7 +26,7 @@ import { TweetMapper } from './mappers/tweet.mapper';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { TweetListResponseDto, SingleTweetResponseDto } from './dto/tweet-response.dto';
 
-@Controller('api/tweets')
+@Controller('/tweets')
 export class TweetsController {
     constructor(private readonly tweetsService: TweetsService) { }
 

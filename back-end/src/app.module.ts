@@ -8,6 +8,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import * as Joi from '@hapi/joi';
 import { AuthModule } from './auth/auth.module';
 import { FollowsModule } from './follows/follows.module';
+import { FeedsModule } from './feeds/feeds.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -25,6 +27,8 @@ import { FollowsModule } from './follows/follows.module';
     TweetsModule,
     AuthModule,
     FollowsModule,
+    FeedsModule,
+    NotificationsModule,
     TypeOrmModule.forRoot({
       type: 'postgres',
       host: process.env.DATABASE_HOST,
