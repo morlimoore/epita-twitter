@@ -3,7 +3,8 @@ import { User } from '../../users/entities/user.entity';
 
 export enum TweetType {
     TEXT = 'text',
-    MEDIA = 'media'
+    MEDIA = 'media',
+    MIXED = 'mixed'
 }
 
 @Entity('tweets')

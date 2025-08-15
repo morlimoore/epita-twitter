@@ -1,11 +1,11 @@
-import { IsString, IsNotEmpty, IsOptional, IsEnum, MaxLength } from 'class-validator';
+import { IsString, IsOptional, IsEnum, MaxLength, ValidateIf } from 'class-validator';
 import { TweetType } from '../entities/tweet.entity';
 
 export class CreateTweetDto {
+    @IsOptional()
     @IsString()
-    @IsNotEmpty({ message: 'Tweet content is required' })
     @MaxLength(280, { message: 'Tweet content cannot exceed 280 characters' })
-    content: string;
+    content?: string;
 
     @IsOptional()
     @IsEnum(TweetType)
