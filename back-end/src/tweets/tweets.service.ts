@@ -24,15 +24,28 @@ export class TweetsService {
         mediaFile?: Express.Multer.File
     ): Promise<Tweet> {
         // Validate that either content or media is provided
-        if (!createTweetDto.content.trim() && !mediaFile) {
+        const hasContent = createTweetDto.content && createTweetDto.content.trim().length > 0;
+        const hasMedia = !!mediaFile;
+
+        if (!hasContent && !hasMedia) {
             throw new BadRequestException('Tweet must contain either text content or media');
+        }
+
+        // Determine tweet type based on content and media
+        let tweetType: TweetType;
+        if (hasContent && hasMedia) {
+            tweetType = TweetType.MIXED;
+        } else if (hasMedia) {
+            tweetType = TweetType.MEDIA;
+        } else {
+            tweetType = TweetType.TEXT;
         }
 
         // Create tweet first
         const tweet = this.tweetRepository.create({
-            content: createTweetDto.content || '',
+            content: hasContent ? createTweetDto.content!.trim() : '',
             userId,
-            type: mediaFile ? TweetType.MEDIA : TweetType.TEXT,
+            type: tweetType,
         });
 
         // Save tweet to get the ID
@@ -50,7 +63,7 @@ export class TweetsService {
                 // Update tweet with media information
                 savedTweet.mediaUrl = mediaResult.url;
                 savedTweet.mediaType = mediaResult.type;
-                savedTweet.type = TweetType.MEDIA;
+                // Note: type is already set above, no need to change it
 
                 await this.tweetRepository.save(savedTweet);
             } catch (error) {
