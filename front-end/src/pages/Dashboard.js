@@ -2,15 +2,91 @@ import React, { useState, useEffect } from 'react';
 import './Dashboard.css';
 import apiService from '../services/api';
 
+// Mock data for demo
+const mockUsers = [
+  { id: 1, username: 'MrBeast', handle: '@MrBeast', verified: true, followers: '200M', bio: 'Making the world a better place through entertainment' },
+  { id: 2, username: 'Elon Musk', handle: '@elonmusk', verified: true, followers: '150M', bio: 'Tesla, SpaceX, Neuralink, Boring Company' },
+  { id: 3, username: 'Taylor Swift', handle: '@taylorswift13', verified: true, followers: '95M', bio: 'Singer-songwriter' },
+  { id: 4, username: 'Cristiano Ronaldo', handle: '@Cristiano', verified: true, followers: '600M', bio: 'Professional footballer' },
+  { id: 5, username: 'Kylie Jenner', handle: '@KylieJenner', verified: true, followers: '400M', bio: 'Beauty entrepreneur' },
+  { id: 6, username: 'Dwayne Johnson', handle: '@TheRock', verified: true, followers: '400M', bio: 'Actor, producer, businessman' },
+  { id: 7, username: 'Ariana Grande', handle: '@ArianaGrande', verified: true, followers: '380M', bio: 'Singer, songwriter, actress' },
+  { id: 8, username: 'Kim Kardashian', handle: '@KimKardashian', verified: true, followers: '360M', bio: 'Reality TV star, businesswoman' }
+];
+
+const mockPosts = [
+  {
+    id: 1,
+    user: mockUsers[0],
+    content: "Just finished filming the most insane challenge yet! 🤯 Can't wait to share it with you all. This one is going to break the internet! 💪",
+    timestamp: "2h",
+    likes: "2.4K",
+    retweets: "892",
+    replies: "45.2K",
+    views: "12.8M"
+  },
+  {
+    id: 2,
+    user: mockUsers[1],
+    content: "Tesla Cybertruck production ramping up nicely! 🚗⚡ The future of electric vehicles is here.",
+    timestamp: "1h",
+    likes: "45.2K",
+    retweets: "12.3K",
+    replies: "8.9K",
+    views: "2.1M"
+  },
+  {
+    id: 3,
+    user: mockUsers[2],
+    content: "Working on new music and I'm so excited to share it with you all! 🎵✨ The creative process is magical.",
+    timestamp: "3h",
+    likes: "89.1K",
+    retweets: "23.4K",
+    replies: "15.6K",
+    views: "4.2M"
+  },
+  {
+    id: 4,
+    user: mockUsers[3],
+    content: "Great game today! The team played with heart and determination. Thank you for all the support! ⚽❤️",
+    timestamp: "5h",
+    likes: "156.7K",
+    retweets: "34.2K",
+    replies: "12.8K",
+    views: "8.9M"
+  },
+  {
+    id: 5,
+    user: mockUsers[4],
+    content: "New Kylie Cosmetics collection dropping soon! 💄✨ You're going to love these shades.",
+    timestamp: "4h",
+    likes: "234.5K",
+    retweets: "45.6K",
+    replies: "18.9K",
+    views: "6.7M"
+  }
+];
+
 // Page Components
 const HomePage = ({ user }) => {
   const [postContent, setPostContent] = useState('');
+  // Poll state
+  const [showPoll, setShowPoll] = useState(false);
+  const [pollQuestion, setPollQuestion] = useState('');
+  const [pollOptions, setPollOptions] = useState(['', '']);
   const [activeTab, setActiveTab] = useState('for-you');
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState(null);
+  
+  // Search and filter states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterType, setFilterType] = useState('all');
+  const [showSearchResults, setShowSearchResults] = useState(false);
+  const [filteredUsers, setFilteredUsers] = useState([]);
+  const [filteredPosts, setFilteredPosts] = useState(mockPosts);
 
   const handleImageUpload = (event) => {
     const file = event.target.files[0];
@@ -23,18 +99,39 @@ const HomePage = ({ user }) => {
   };
 
   const handlePost = () => {
-    if (postContent.trim() || selectedImage) {
-      // TODO: Implement post creation API call
-      console.log('Creating post:', { 
-        content: postContent, 
+    if (postContent.trim() || selectedImage || (showPoll && pollQuestion.trim() && pollOptions.some(opt => opt.trim()))) {
+      // Mock post creation with poll data
+      const poll = showPoll && pollQuestion.trim() && pollOptions.some(opt => opt.trim())
+        ? {
+            question: pollQuestion,
+            options: pollOptions.filter(opt => opt.trim()),
+          }
+        : null;
+      console.log('Creating post:', {
+        content: postContent,
         image: selectedImage,
-        location: selectedLocation 
+        location: selectedLocation,
+        poll,
       });
       setPostContent('');
       setSelectedImage(null);
       setImagePreview(null);
       setSelectedLocation(null);
+      setShowPoll(false);
+      setPollQuestion('');
+      setPollOptions(['', '']);
     }
+  };
+
+  // Poll option handlers
+  const handlePollOptionChange = (idx, value) => {
+    setPollOptions(prev => prev.map((opt, i) => (i === idx ? value : opt)));
+  };
+  const handleAddPollOption = () => {
+    if (pollOptions.length < 4) setPollOptions(prev => [...prev, '']);
+  };
+  const handleRemovePollOption = (idx) => {
+    if (pollOptions.length > 2) setPollOptions(prev => prev.filter((_, i) => i !== idx));
   };
 
   const handleEmojiClick = (emoji) => {
@@ -60,13 +157,159 @@ const HomePage = ({ user }) => {
     }
   };
 
-  const isPostButtonDisabled = !postContent.trim() && !selectedImage;
+  const isPollValid = showPoll ? pollQuestion.trim() && pollOptions.filter(opt => opt.trim()).length >= 2 : true;
+  const isPostButtonDisabled = !postContent.trim() && !selectedImage && !(showPoll && isPollValid);
+
+  // Search and filter functions
+  const handleSearch = (query) => {
+    setSearchQuery(query);
+    if (query.trim()) {
+      const filtered = mockUsers.filter(user => 
+        user.username.toLowerCase().includes(query.toLowerCase()) ||
+        user.handle.toLowerCase().includes(query.toLowerCase()) ||
+        user.bio.toLowerCase().includes(query.toLowerCase())
+      );
+      setFilteredUsers(filtered);
+      setShowSearchResults(true);
+    } else {
+      setShowSearchResults(false);
+      setFilteredUsers([]);
+    }
+  };
+
+  const handleFilter = (type) => {
+    setFilterType(type);
+    let filtered = [...mockPosts];
+    
+    switch (type) {
+      case 'verified':
+        filtered = mockPosts.filter(post => post.user.verified);
+        break;
+      case 'high-engagement':
+        filtered = mockPosts.filter(post => 
+          parseInt(post.likes.replace(/[KMB]/g, '')) > 50 || 
+          parseInt(post.retweets.replace(/[KMB]/g, '')) > 10
+        );
+        break;
+      case 'recent':
+        filtered = mockPosts.filter(post => 
+          parseInt(post.timestamp.replace('h', '')) <= 3
+        );
+        break;
+      case 'trending':
+        filtered = mockPosts.filter(post => 
+          parseInt(post.views.replace(/[KMB]/g, '')) > 5
+        );
+        break;
+      default:
+        filtered = mockPosts;
+    }
+    
+    setFilteredPosts(filtered);
+  };
+
+  const clearSearch = () => {
+    setSearchQuery('');
+    setShowSearchResults(false);
+    setFilteredUsers([]);
+  };
 
   // Basic emoji list for demo
   const commonEmojis = ['😀', '😂', '❤️', '👍', '🎉', '🔥', '😍', '🤔', '😢', '😡'];
 
   return (
     <div className="home-page">
+      {/* Search Bar */}
+      <div className="search-container">
+        <div className="search-bar">
+          <svg className="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="#536471">
+            <path d="M10.25 3.75c-3.59 0-6.5 2.91-6.5 6.5s2.91 6.5 6.5 6.5c1.795 0 3.419-.726 4.596-1.904 1.178-1.177 1.904-2.801 1.904-4.596 0-3.59-2.91-6.5-6.5-6.5zm-8.5 6.5c0-4.694 3.806-8.5 8.5-8.5s8.5 3.806 8.5 8.5c0 1.986-.682 3.815-1.824 5.262l4.781 4.781-1.414 1.414-4.781-4.781c-1.447 1.142-3.276 1.824-5.262 1.824-4.694 0-8.5-3.806-8.5-8.5z"/>
+          </svg>
+          <input
+            type="text"
+            placeholder="Search users..."
+            value={searchQuery}
+            onChange={(e) => handleSearch(e.target.value)}
+            className="search-input"
+          />
+          {searchQuery && (
+            <button className="clear-search" onClick={clearSearch}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="#536471">
+                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+              </svg>
+            </button>
+          )}
+        </div>
+        
+        {/* Search Results */}
+        {showSearchResults && (
+          <div className="search-results">
+            {filteredUsers.length > 0 ? (
+              filteredUsers.map(user => (
+                <div key={user.id} className="search-result-item">
+                  <div className="user-avatar">
+                    <div className="avatar-placeholder">
+                      {user.username.substring(0, 2).toUpperCase()}
+                    </div>
+                  </div>
+                  <div className="user-info">
+                    <div className="user-name">
+                      {user.username}
+                      {user.verified && (
+                        <svg className="verified-badge" width="16" height="16" viewBox="0 0 24 24" fill="#1d9bf0">
+                          <path d="M22.5 12.5c0-1.58-.875-2.95-2.148-3.6.154-.435.238-.905.238-1.4 0-2.21-1.71-3.998-3.818-3.998-.47 0-.92.084-1.336.25C14.818 2.415 13.51 1.5 12 1.5s-2.816.917-3.437 2.25c-.415-.165-.866-.25-1.336-.25-2.11 0-3.818 1.79-3.818 4 0 .494.083.964.237 1.4-1.272.65-2.147 2.018-2.147 3.6 0 1.495.782 2.798 1.942 3.486-.02.17-.032.34-.032.514 0 2.21 1.708 4 3.818 4 .47 0 .92-.086 1.335-.25.62 1.334 1.926 2.25 3.437 2.25 1.512 0 2.818-.916 3.437-2.25.415.163.865.248 1.336.248 2.11 0 3.818-1.79 3.818-4 0-.174-.012-.344-.033-.513 1.158-.687 1.943-1.99 1.943-3.484zm-6.616-3.334l-4.334 6.5c-.145.217-.382.334-.625.334-.143 0-.288-.04-.416-.126l-.115-.094-2.415-2.415c-.293-.293-.293-.768 0-1.06s.768-.294 1.06 0l1.77 1.767 3.825-5.74c.23-.345.696-.436 1.04-.207.346.23.44.696.21 1.04z"/>
+                        </svg>
+                      )}
+                    </div>
+                    <div className="user-handle">{user.handle}</div>
+                    <div className="user-bio">{user.bio}</div>
+                    <div className="user-followers">{user.followers} followers</div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="no-results">No users found</div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Filter Options */}
+      <div className="filter-container">
+        <div className="filter-tabs">
+          <button 
+            className={`filter-tab ${filterType === 'all' ? 'active' : ''}`}
+            onClick={() => handleFilter('all')}
+          >
+            All Posts
+          </button>
+          <button 
+            className={`filter-tab ${filterType === 'verified' ? 'active' : ''}`}
+            onClick={() => handleFilter('verified')}
+          >
+            Verified Only
+          </button>
+          <button 
+            className={`filter-tab ${filterType === 'high-engagement' ? 'active' : ''}`}
+            onClick={() => handleFilter('high-engagement')}
+          >
+            High Engagement
+          </button>
+          <button 
+            className={`filter-tab ${filterType === 'recent' ? 'active' : ''}`}
+            onClick={() => handleFilter('recent')}
+          >
+            Recent
+          </button>
+          <button 
+            className={`filter-tab ${filterType === 'trending' ? 'active' : ''}`}
+            onClick={() => handleFilter('trending')}
+          >
+            Trending
+          </button>
+        </div>
+      </div>
+
       {/* Navigation Tabs */}
       <div className="home-navigation">
         <button 
@@ -99,7 +342,53 @@ const HomePage = ({ user }) => {
               onChange={(e) => setPostContent(e.target.value)}
               rows="3"
             />
-            
+
+            {/* Poll Option UI */}
+            <div style={{ margin: '8px 0' }}>
+              {!showPoll && (
+                <button type="button" className="action-button" style={{marginBottom: 8}} onClick={() => setShowPoll(true)}>
+                  + Add Poll
+                </button>
+              )}
+              {showPoll && (
+                <div className="poll-creator" style={{border: '1px solid #e1e8ed', borderRadius: 8, padding: 12, marginBottom: 8}}>
+                  <input
+                    type="text"
+                    className="poll-question-input"
+                    placeholder="Poll question"
+                    value={pollQuestion}
+                    onChange={e => setPollQuestion(e.target.value)}
+                    style={{width: '100%', marginBottom: 8, padding: 6, borderRadius: 4, border: '1px solid #ccc'}}
+                  />
+                  {pollOptions.map((opt, idx) => (
+                    <div key={idx} style={{display: 'flex', alignItems: 'center', marginBottom: 6}}>
+                      <input
+                        type="text"
+                        className="poll-option-input"
+                        placeholder={`Option ${idx + 1}`}
+                        value={opt}
+                        onChange={e => handlePollOptionChange(idx, e.target.value)}
+                        style={{flex: 1, padding: 6, borderRadius: 4, border: '1px solid #ccc'}}
+                      />
+                      {pollOptions.length > 2 && (
+                        <button type="button" style={{marginLeft: 6}} onClick={() => handleRemovePollOption(idx)}>
+                          ×
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <div style={{display: 'flex', justifyContent: 'space-between', marginTop: 6}}>
+                    <button type="button" onClick={handleAddPollOption} disabled={pollOptions.length >= 4}>
+                      + Add Option
+                    </button>
+                    <button type="button" onClick={() => { setShowPoll(false); setPollQuestion(''); setPollOptions(['', '']); }}>
+                      Remove Poll
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Image Preview */}
             {imagePreview && (
               <div className="image-preview">
@@ -197,65 +486,78 @@ const HomePage = ({ user }) => {
        {/* Feed */}
        <div className="feed">
          <div className="feed-header">
-           <span className="show-posts-link">Posts will appear here</span>
+           <span className="show-posts-link">
+             {filteredPosts.length > 0 ? `${filteredPosts.length} posts` : 'No posts found'}
+           </span>
          </div>
-                   <div className="tweets-container">
-            {/* Test Post - MrBeast */}
-            <div className="tweet">
-              <div className="tweet-avatar">
-                <div className="avatar-placeholder">MB</div>
-              </div>
-              <div className="tweet-content">
-                <div className="tweet-header">
-                  <span className="tweet-author">MrBeast</span>
-                  <svg className="verified-badge" width="16" height="16" viewBox="0 0 24 24" fill="#1d9bf0">
-                    <path d="M22.5 12.5c0-1.58-.875-2.95-2.148-3.6.154-.435.238-.905.238-1.4 0-2.21-1.71-3.998-3.818-3.998-.47 0-.92.084-1.336.25C14.818 2.415 13.51 1.5 12 1.5s-2.816.917-3.437 2.25c-.415-.165-.866-.25-1.336-.25-2.11 0-3.818 1.79-3.818 4 0 .494.083.964.237 1.4-1.272.65-2.147 2.018-2.147 3.6 0 1.495.782 2.798 1.942 3.486-.02.17-.032.34-.032.514 0 2.21 1.708 4 3.818 4 .47 0 .92-.086 1.335-.25.62 1.334 1.926 2.25 3.437 2.25 1.512 0 2.818-.916 3.437-2.25.415.163.865.248 1.336.248 2.11 0 3.818-1.79 3.818-4 0-.174-.012-.344-.033-.513 1.158-.687 1.943-1.99 1.943-3.484zm-6.616-3.334l-4.334 6.5c-.145.217-.382.334-.625.334-.143 0-.288-.04-.416-.126l-.115-.094-2.415-2.415c-.293-.293-.293-.768 0-1.06s.768-.294 1.06 0l1.77 1.767 3.825-5.74c.23-.345.696-.436 1.04-.207.346.23.44.696.21 1.04z"/>
-                  </svg>
-                  <span className="tweet-handle">@MrBeast</span>
-                  <span className="tweet-time">2h</span>
-                </div>
-                <div className="tweet-text">
-                  Just finished filming the most insane challenge yet! 🤯 Can't wait to share it with you all. This one is going to break the internet! 💪
-                </div>
-                <div className="tweet-actions">
-                  <button className="action-btn">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="#536471">
-                      <path d="M1.751 10c0-4.42 3.584-8 8.005-8h4.366c4.49 0 8.129 3.64 8.129 8.13 0 2.96-1.607 5.68-4.196 7.11l-2.26 1.23c-.51.28-1.1.28-1.61 0l-2.26-1.23C4.307 15.68 2.751 12.96 2.751 10zM8 8c-1.657 0-3 1.343-3 3s1.343 3 3 3 3-1.343 3-3-1.343-3-3-3zm3.5 6c-.828 0-1.5-.672-1.5-1.5S10.672 11 11.5 11s1.5.672 1.5 1.5S12.328 17 11.5 17z"/>
-                    </svg>
-                    <span>2.4K</span>
-                  </button>
-                  <button className="action-btn">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="#536471">
-                      <path d="M4.5 3.88l4.432 4.14-1.364 1.46L5.5 6.55V16c0 1.1.9 2 2 2h13v-2H7.5V6.55l-2.068 1.93-1.364-1.46L4.5 3.88zM16 16l-4 4-4-4h8z"/>
-                    </svg>
-                    <span>892</span>
-                  </button>
-                  <button className="action-btn">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="#536471">
-                      <path d="M16.697 5.5c-1.222-.06-2.679.51-3.89 2.16l-.805 1.09-.806-1.09A3.902 3.902 0 0 0 11.303 5.5c-1.243 0-2.4.52-3.193 1.38A3.927 3.927 0 0 0 6.5 9.5c0 1.243.52 2.4 1.38 3.193A3.927 3.927 0 0 0 9.5 14.5c1.243 0 2.4-.52 3.193-1.38A3.927 3.927 0 0 0 14.5 9.5c0-1.243-.52-2.4-1.38-3.193A3.927 3.927 0 0 0 11.303 5.5zM9.5 12.5c-.828 0-1.5-.672-1.5-1.5s.672-1.5 1.5-1.5 1.5.672 1.5 1.5-.672 1.5-1.5 1.5z"/>
-                    </svg>
-                    <span>45.2K</span>
-                  </button>
-                  <button className="action-btn">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="#536471">
-                      <path d="M8.75 21V3h2v18h-2zM18 21V8.5h2V21h-2zM4 21l.004-10h2L6 21H4zm9.248 0v-7h2v7h-2z"/>
-                    </svg>
-                    <span>12.8M</span>
-                  </button>
-                  <button className="action-btn">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="#536471">
-                      <path d="M4 4.5C4 3.12 5.119 2 6.5 2h11C18.881 2 20 3.12 20 4.5v18.44l-8-5.71-8 5.71V4.5zM6.5 4c-.276 0-.5.22-.5.5v14.56l6-4.29 6 4.29V4.5c0-.28-.224-.5-.5-.5h-11z"/>
-                    </svg>
-                  </button>
-                  <button className="action-btn">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="#536471">
-                      <path d="M12 2.59l5.7 5.7-1.41 1.42L13 6.41V16h-2V6.41l-3.3 3.3-1.41-1.42L12 2.59zM21 15l-.02 3.51c0 1.38-1.12 2.49-2.5 2.49H5.5C4.11 21 3 19.88 3 18.5V15h2v3.5c0 .28.22.5.5.5h12.98c.28 0 .5-.22.5-.5L19 15h2z"/>
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
+         <div className="tweets-container">
+           {filteredPosts.length > 0 ? (
+             filteredPosts.map(post => (
+               <div key={post.id} className="tweet">
+                 <div className="tweet-avatar">
+                   <div className="avatar-placeholder">
+                     {post.user.username.substring(0, 2).toUpperCase()}
+                   </div>
+                 </div>
+                 <div className="tweet-content">
+                   <div className="tweet-header">
+                     <span className="tweet-author">{post.user.username}</span>
+                     {post.user.verified && (
+                       <svg className="verified-badge" width="16" height="16" viewBox="0 0 24 24" fill="#1d9bf0">
+                         <path d="M22.5 12.5c0-1.58-.875-2.95-2.148-3.6.154-.435.238-.905.238-1.4 0-2.21-1.71-3.998-3.818-3.998-.47 0-.92.084-1.336.25C14.818 2.415 13.51 1.5 12 1.5s-2.816.917-3.437 2.25c-.415-.165-.866-.25-1.336-.25-2.11 0-3.818 1.79-3.818 4 0 .494.083.964.237 1.4-1.272.65-2.147 2.018-2.147 3.6 0 1.495.782 2.798 1.942 3.486-.02.17-.032.34-.032.514 0 2.21 1.708 4 3.818 4 .47 0 .92-.086 1.335-.25.62 1.334 1.926 2.25 3.437 2.25 1.512 0 2.818-.916 3.437-2.25.415.163.865.248 1.336.248 2.11 0 3.818-1.79 3.818-4 0-.174-.012-.344-.033-.513 1.158-.687 1.943-1.99 1.943-3.484zm-6.616-3.334l-4.334 6.5c-.145.217-.382.334-.625.334-.143 0-.288-.04-.416-.126l-.115-.094-2.415-2.415c-.293-.293-.293-.768 0-1.06s.768-.294 1.06 0l1.77 1.767 3.825-5.74c.23-.345.696-.436 1.04-.207.346.23.44.696.21 1.04z"/>
+                       </svg>
+                     )}
+                     <span className="tweet-handle">{post.user.handle}</span>
+                     <span className="tweet-time">{post.timestamp}</span>
+                   </div>
+                   <div className="tweet-text">
+                     {post.content}
+                   </div>
+                   <div className="tweet-actions">
+                     <button className="action-btn">
+                       <svg width="18" height="18" viewBox="0 0 24 24" fill="#536471">
+                         <path d="M1.751 10c0-4.42 3.584-8 8.005-8h4.366c4.49 0 8.129 3.64 8.129 8.13 0 2.96-1.607 5.68-4.196 7.11l-2.26 1.23c-.51.28-1.1.28-1.61 0l-2.26-1.23C4.307 15.68 2.751 12.96 2.751 10zM8 8c-1.657 0-3 1.343-3 3s1.343 3 3 3 3-1.343 3-3-1.343-3-3-3zm3.5 6c-.828 0-1.5-.672-1.5-1.5S10.672 11 11.5 11s1.5.672 1.5 1.5S12.328 17 11.5 17z"/>
+                       </svg>
+                       <span>{post.likes}</span>
+                     </button>
+                     <button className="action-btn">
+                       <svg width="18" height="18" viewBox="0 0 24 24" fill="#536471">
+                         <path d="M4.5 3.88l4.432 4.14-1.364 1.46L5.5 6.55V16c0 1.1.9 2 2 2h13v-2H7.5V6.55l-2.068 1.93-1.364-1.46L4.5 3.88zM16 16l-4 4-4-4h8z"/>
+                       </svg>
+                       <span>{post.retweets}</span>
+                     </button>
+                     <button className="action-btn">
+                       <svg width="18" height="18" viewBox="0 0 24 24" fill="#536471">
+                         <path d="M16.697 5.5c-1.222-.06-2.679.51-3.89 2.16l-.805 1.09-.806-1.09A3.902 3.902 0 0 0 11.303 5.5c-1.243 0-2.4.52-3.193 1.38A3.927 3.927 0 0 0 6.5 9.5c0 1.243.52 2.4 1.38 3.193A3.927 3.927 0 0 0 9.5 14.5c1.243 0 2.4-.52 3.193-1.38A3.927 3.927 0 0 0 14.5 9.5c0-1.243-.52-2.4-1.38-3.193A3.927 3.927 0 0 0 11.303 5.5zM9.5 12.5c-.828 0-1.5-.672-1.5-1.5s.672-1.5 1.5-1.5 1.5.672 1.5 1.5-.672 1.5-1.5 1.5z"/>
+                       </svg>
+                       <span>{post.replies}</span>
+                     </button>
+                     <button className="action-btn">
+                       <svg width="18" height="18" viewBox="0 0 24 24" fill="#536471">
+                         <path d="M8.75 21V3h2v18h-2zM18 21V8.5h2V21h-2zM4 21l.004-10h2L6 21H4zm9.248 0v-7h2v7h-2z"/>
+                       </svg>
+                       <span>{post.views}</span>
+                     </button>
+                     <button className="action-btn">
+                       <svg width="18" height="18" viewBox="0 0 24 24" fill="#536471">
+                         <path d="M4 4.5C4 3.12 5.119 2 6.5 2h11C18.881 2 20 3.12 20 4.5v18.44l-8-5.71-8 5.71V4.5zM6.5 4c-.276 0-.5.22-.5.5v14.56l6-4.29 6 4.29V4.5c0-.28-.224-.5-.5-.5h-11z"/>
+                       </svg>
+                     </button>
+                     <button className="action-btn">
+                       <svg width="18" height="18" viewBox="0 0 24 24" fill="#536471">
+                         <path d="M12 2.59l5.7 5.7-1.41 1.42L13 6.41V16h-2V6.41l-3.3 3.3-1.41-1.42L12 2.59zM21 15l-.02 3.51c0 1.38-1.12 2.49-2.5 2.49H5.5C4.11 21 3 19.88 3 18.5V15h2v3.5c0 .28.22.5.5.5h12.98c.28 0 .5-.22.5-.5L19 15h2z"/>
+                       </svg>
+                     </button>
+                   </div>
+                 </div>
+               </div>
+             ))
+           ) : (
+             <div className="no-posts">
+               <p>No posts match your current filter.</p>
+             </div>
+           )}
+         </div>
        </div>
     </div>
   );
