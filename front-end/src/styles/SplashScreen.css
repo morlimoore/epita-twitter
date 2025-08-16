@@ -1,79 +1,173 @@
-.splash-container 
-{  
-  display: flex;  justify-content: center;
-    align-items: center;  height: 100vh;  
-    background-color: white;
+.splash-container {  
+  display: flex;  
+  justify-content: center;
+  align-items: center;  
+  min-height: 100vh;  
+  background-color: white;
+  padding: 20px;
 }
   
-.splash-content 
-  { 
-     max-width: 600px;  
-     width: 100%;  
-     padding: 20px;  
-     text-align: center;
-    }
-    
-.logo-container 
-  { 
-    margin-bottom:  40px;
-  }
+.splash-content {
+  display: flex;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 60px 40px;
+  min-height: calc(100vh - 120px);
+  align-items: center;
+  gap: 80px;
+}
+
+.main-content {
+  flex: 1;
+  max-width: 500px;
+  text-align: center;
+}
+
+.side-panel {
+  flex: 1;
+  max-width: 500px;
+}
+
+.logo-container { 
+  margin-bottom: 30px;
+}
   
-  .twitter-logo 
-  { 
-    width: 50px;  
-    height: 50px;  
-    fill: #7371FC;
-  }
+.twitter-logo { 
+  width: 50px;  
+  height: 50px;  
+  fill: #7371FC;
+}
   
-  h1 
-  {
-   color: #0f1419;  
-   font-size: 28px; 
-   margin-top: 10px;
-  }
+h1 {
+  color: #0f1419;  
+  font-size: 28px; 
+  margin-top: 10px;
+}
+
+/* Platform Introduction - Now vertical after logo */
+.intro-section {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 40px;
+  border-radius: 20px;
+  color: white;
+  box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+.intro-section h2 {
+  font-size: 2.2rem;
+  margin-bottom: 20px;
+  font-weight: 700;
+  background: linear-gradient(45deg, #ffffff, #f0f0f0);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: none;
+}
+
+.intro-description {
+  font-size: 1.1rem;
+  line-height: 1.7;
+  margin-bottom: 20px;
+  opacity: 0.9;
+}
+
+.join-text {
+  font-size: 1rem;
+  line-height: 1.6;
+  margin-bottom: 0;
+  opacity: 0.8;
+}
+
+.join-text strong {
+  color: #ffffff;
+  font-weight: 600;
+}
     
-  .auth-buttons 
-    {  
-      display: flex;  
-      flex-direction: column; 
-       gap: 15px;  
-       max-width: 300px;  
-       margin: 0 auto;
-      }
+.auth-buttons {  
+  display: flex;  
+  flex-direction: column; 
+  gap: 15px;  
+  max-width: 300px;  
+  margin: 0 auto;
+}
       
-    button 
-    {  
-      cursor: pointer;  
-      border: none; 
-      border-radius: 9999px;  
-      padding: 12px 0;  
-      font-weight: bold;  
-      font-size: 15px;
+button {  
+  cursor: pointer;  
+  border: none; 
+  border-radius: 9999px;  
+  padding: 12px 0;  
+  font-weight: bold;  
+  font-size: 15px;
+}
         
-      }
-        
-    .login-btn 
-        
-    {  
-      background-color: white;  
-      color: #7371FC; 
-      border: 1px solid #7371FC;
- 
+.login-btn {  
+  background-color: white;  
+  color: #7371FC; 
+  border: 1px solid #7371FC;
+}
             
-    }
-            
-    .login-btn:hover 
-    {  
-      background-color: #e8f5fe;
-    }
-    
-    .signup-btn 
-    {  
-      background-color: #7371FC; 
-      color: white;
-    }
-    
-    .signup-btn:hover 
-    {  
-      background-color: #7371FC;
-    }
+.login-btn:hover {  
+  background-color: #e8f5fe;
+}
+
+.signup-btn {  
+  background-color: #7371FC; 
+  color: white;
+}
+
+.signup-btn:hover {  
+  background-color: #5a58e8;
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+  .splash-content {
+    flex-direction: column;
+    gap: 40px;
+    padding: 40px 20px;
+  }
+  
+  .main-content,
+  .side-panel {
+    max-width: 100%;
+    width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .splash-content {
+    padding: 20px;
+  }
+  
+  .logo-container h1 {
+    font-size: 2.5rem;
+  }
+  
+  .intro-section {
+    padding: 20px;
+  }
+  
+  .intro-section h2 {
+    font-size: 20px;
+  }
+  
+  .intro-description {
+    font-size: 14px;
+  }
+  
+  .join-text {
+    font-size: 14px;
+  }
+  
+  .auth-buttons {
+    gap: 15px;
+  }
+  
+  .login-btn,
+  .signup-btn {
+    font-size: 1rem;
+    padding: 14px 40px;
+  }
+}
