@@ -1,125 +1,128 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import '../styles/Profile.css';
 import LogoutScreen from './LogoutScreen';
+import { userAPI, tweetAPI, followAPI } from '../services/api';
 
-const Profile = () => {
+const Profile = ({ user, onLogout, refreshTrigger }) => {
   const [activeTab, setActiveTab] = useState('posts');
   const [showEditModal, setShowEditModal] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showFollowersModal, setShowFollowersModal] = useState(false);
   const [showFollowingModal, setShowFollowingModal] = useState(false);
+  const [userProfile, setUserProfile] = useState(user);
+  const [userTweets, setUserTweets] = useState([]);
+  const [followers, setFollowers] = useState([]);
+  const [following, setFollowing] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     bio: '',
     location: ''
   });
-  
-  // Mock user data - in real app this would come from API/props
-  const userProfile = {
-    username: 'Sita Sharma',
-    handle: '@sitasharma_np',
-    bio: 'Proud Nepali 🇳🇵 | Love for mountains and momo | Digital Nepal advocate | Kathmandu ❤️ #NepalFirst',
-    joinDate: 'March 2022',
-    following: 287,
-    followers: 456,
-    postsCount: 89,
-    profileImage: '/api/placeholder/120/120',
-    coverImage: '/api/placeholder/600/200',
-    verified: true,
-    location: 'Kathmandu, Nepal',
-    website: 'visitnepal.com',
-    email: 'sita.sharma@gmail.com',
-    phone: '+977-9841234567',
-    dateOfBirth: '1995-04-15'
+
+  // Refresh function to reload profile data
+  const refreshProfileData = async () => {
+    if (!user) return;
+    
+    try {
+      setLoading(true);
+      setError('');
+      
+      // Get user's tweets - use "me" endpoint for current user's tweets
+      const tweets = await tweetAPI.getUserTweets(user.id);
+      const tweetsData = tweets?.payload?.data || tweets?.data || [];
+      setUserTweets(tweetsData);
+      
+      // Get followers count and list
+      try {
+        const followersCount = await followAPI.getFollowersCount(user.id);
+        const followersList = await followAPI.getFollowers(user.id);
+        
+        console.log('Followers count response:', followersCount);
+        console.log('Followers list response:', followersList);
+        
+        // Handle different response structures
+        const followersData = followersList?.payload?.data || followersList?.data || followersList || [];
+        setFollowers(followersData);
+        
+        // Get following count and list  
+        const followingCount = await followAPI.getFollowingCount(user.id);
+        const followingList = await followAPI.getFollowing(user.id);
+        
+        console.log('Following count response:', followingCount);
+        console.log('Following list response:', followingList);
+        
+        const followingData = followingList?.payload?.data || followingList?.data || followingList || [];
+        setFollowing(followingData);
+        
+        // Update user profile with counts
+        setUserProfile(prev => ({
+          ...prev,
+          postsCount: tweetsData?.length || 0,
+          followersCount: followersCount?.payload?.data?.followersCount || followersCount?.followersCount || followersData.length || 0,
+          followingCount: followingCount?.payload?.data?.followingCount || followingCount?.followingCount || followingData.length || 0
+        }));
+        
+      } catch (followError) {
+        console.error('Error fetching follow data:', followError);
+        // Set counts to 0 if there's an error
+        setFollowers([]);
+        setFollowing([]);
+        setUserProfile(prev => ({
+          ...prev,
+          postsCount: tweetsData?.length || 0,
+          followersCount: 0,
+          followingCount: 0
+        }));
+      }
+      
+    } catch (error) {
+      console.error('Error loading profile data:', error);
+      setError(error.message || 'Failed to load profile data');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Mock followers data
-  const followersData = [
-    {
-      id: 1,
-      name: 'Ramesh Thapa',
-      handle: '@ramesh_thapa',
-      bio: 'Software Engineer from Pokhara | Tech enthusiast',
-      profileImage: '/api/placeholder/50/50',
-      isFollowing: true
-    },
-    {
-      id: 2,
-      name: 'Priya Gurung',
-      handle: '@priya_gurung',
-      bio: 'Mountain lover | Trekking guide | Born in Solukhumbu',
-      profileImage: '/api/placeholder/50/50',
-      isFollowing: false
-    },
-    {
-      id: 3,
-      name: 'Bikash Shrestha',
-      handle: '@bikash_stha',
-      bio: 'Entrepreneur | Startup Nepal | Chitwan based',
-      profileImage: '/api/placeholder/50/50',
-      isFollowing: true
-    },
-    {
-      id: 4,
-      name: 'Sunita Rai',
-      handle: '@sunita_rai',
-      bio: 'Teacher from Dharan | Education for all',
-      profileImage: '/api/placeholder/50/50',
-      isFollowing: false
-    },
-    {
-      id: 5,
-      name: 'Krishna Paudel',
-      handle: '@krishna_paudel',
-      bio: 'Digital Marketing | Helping local businesses grow',
-      profileImage: '/api/placeholder/50/50',
-      isFollowing: true
-    }
-  ];
+  // Load user profile data from API
+  useEffect(() => {
+    refreshProfileData();
+  }, [user]);
 
-  // Mock following data
-  const followingData = [
-    {
-      id: 6,
-      name: 'Nepal Tourism',
-      handle: '@visitnepal2020',
-      bio: 'Official Nepal Tourism Board | Visit Nepal 2023',
-      profileImage: '/api/placeholder/50/50',
-      isFollowing: true
-    },
-    {
-      id: 7,
-      name: 'Ani Choying Dolma',
-      handle: '@ani_choying',
-      bio: 'Buddhist nun | Singer | Social worker',
-      profileImage: '/api/placeholder/50/50',
-      isFollowing: true
-    },
-    {
-      id: 8,
-      name: 'Kathmandu Post',
-      handle: '@kathmandupost',
-      bio: 'Leading English daily newspaper of Nepal',
-      profileImage: '/api/placeholder/50/50',
-      isFollowing: true
-    },
-    {
-      id: 9,
-      name: 'Paras Khadka',
-      handle: '@paras_khadka',
-      bio: 'Former Captain | Nepal Cricket Team',
-      profileImage: '/api/placeholder/50/50',
-      isFollowing: true
-    },
-    {
-      id: 10,
-      name: 'Yomari Kitchen',
-      handle: '@yomari_kitchen',
-      bio: 'Authentic Nepali recipes | Traditional food culture',
-      profileImage: '/api/placeholder/50/50',
-      isFollowing: true
+  // Add effect to refresh profile when window gains focus (user returns to profile)
+  useEffect(() => {
+    const handleFocus = () => {
+      // Refresh profile data when user returns to the page
+      refreshProfileData();
+    };
+
+    const handleVisibilityChange = () => {
+      // Refresh when tab becomes visible
+      if (document.visibilityState === 'visible') {
+        refreshProfileData();
+      }
+    };
+
+    // Add event listeners
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Cleanup event listeners
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [user]);
+
+  // Refresh profile data when refreshTrigger changes (when user switches to profile tab)
+  useEffect(() => {
+    if (refreshTrigger > 0) {
+      refreshProfileData();
     }
-  ];
+  }, [refreshTrigger]);
+
+  // Use real followers and following data from API
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
@@ -128,10 +131,42 @@ const Profile = () => {
     }));
   };
 
-  const handleFollowToggle = (userId, isCurrentlyFollowing) => {
-    // In a real app, this would make an API call
-    console.log(`${isCurrentlyFollowing ? 'Unfollowing' : 'Following'} user ${userId}`);
-    // Update the local state or refetch data
+  const handleFollowToggle = async (userId, isCurrentlyFollowing) => {
+    try {
+      if (isCurrentlyFollowing) {
+        await followAPI.unfollowUser(userId);
+        console.log('Unfollowed user:', userId);
+      } else {
+        await followAPI.followUser(userId);
+        console.log('Followed user:', userId);
+      }
+      
+      // Refresh the followers/following lists after follow/unfollow
+      const updatedFollowers = await followAPI.getFollowers(user.id);
+      const updatedFollowing = await followAPI.getFollowing(user.id);
+      setFollowers(updatedFollowers?.data || updatedFollowers || []);
+      setFollowing(updatedFollowing?.data || updatedFollowing || []);
+      
+      // Also refresh the counts
+      refreshProfileData();
+    } catch (error) {
+      console.error('Error toggling follow status:', error);
+    }
+  };
+
+  // Delete tweet handler
+  const handleDeleteTweet = async (tweetId) => {
+    if (window.confirm('Are you sure you want to delete this tweet?')) {
+      try {
+        await tweetAPI.delete(tweetId);
+        // Remove tweet from local state
+        setUserTweets(prev => prev.filter(t => t.id !== tweetId));
+        alert('Tweet deleted successfully');
+      } catch (error) {
+        console.error('Error deleting tweet:', error);
+        alert('Failed to delete tweet. Please try again.');
+      }
+    }
   };
 
   const renderFollowModal = (title, users) => {
@@ -152,24 +187,38 @@ const Profile = () => {
           </div>
           
           <div className="follow-list">
-            {users.map(user => (
-              <div key={user.id} className="follow-item">
-                <div className="follow-item-left">
-                  <img src={user.profileImage} alt={user.name} className="follow-avatar" />
-                  <div className="follow-info">
-                    <div className="follow-name">{user.name}</div>
-                    <div className="follow-handle">{user.handle}</div>
-                    <div className="follow-bio">{user.bio}</div>
-                  </div>
-                </div>
-                <button 
-                  className={`follow-btn ${user.isFollowing ? 'following' : 'follow'}`}
-                  onClick={() => handleFollowToggle(user.id, user.isFollowing)}
-                >
-                  {user.isFollowing ? 'Following' : 'Follow'}
-                </button>
+            {loading ? (
+              <div className="follow-empty">
+                <p>Loading...</p>
               </div>
-            ))}
+            ) : !users || users.length === 0 ? (
+              <div className="follow-empty">
+                <p>
+                  {title === 'Followers' 
+                    ? 'No followers yet' 
+                    : 'Not following anyone yet'
+                  }
+                </p>
+              </div>
+            ) : (
+              users.map(user => (
+                <div key={user.id} className="follow-item">
+                  <div className="follow-item-left">
+                    <div className="follow-info">
+                      <div className="follow-name">{user.name || user.displayName || user.username}</div>
+                      <div className="follow-handle">@{user.handle || user.username}</div>
+                      <div className="follow-bio">{user.bio || 'No bio available'}</div>
+                    </div>
+                  </div>
+                  <button 
+                    className={`follow-btn ${user.isFollowing ? 'following' : 'follow'}`}
+                    onClick={() => handleFollowToggle(user.id, user.isFollowing)}
+                  >
+                    {user.isFollowing ? 'Following' : 'Follow'}
+                  </button>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>
@@ -222,116 +271,86 @@ const Profile = () => {
     );
   };
 
-  const posts = [
-    {
-      id: 1,
-      content: "Just had the most amazing dal bhat at a local restaurant in Thamel! Nothing beats authentic Nepali food 🍛 The mountains make everything taste better! #NepalFood #DalBhat #Kathmandu",
-      timestamp: "Nov 7, 2024",
-      likes: 23,
-      retweets: 8,
-      replies: 5,
-      hasImage: true,
-      imageUrl: '/api/placeholder/500/300'
-    },
-    {
-      id: 2,
-      content: "Sunrise view from Sarangkot this morning was absolutely breathtaking! 🏔️ Machapuchare peak looked like it was painted by gods. Nepal's natural beauty never fails to amaze me. #Pokhara #Nepal #Mountains",
-      timestamp: "Nov 6, 2024",
-      likes: 67,
-      retweets: 24,
-      replies: 12,
-      hasImage: false
-    },
-    {
-      id: 3,
-      content: "Proud to see young Nepali entrepreneurs building amazing tech startups! 🇳🇵 Our country has so much talent. Let's support local innovation and make Digital Nepal a reality! #DigitalNepal #Startup",
-      timestamp: "Nov 5, 2024",
-      likes: 45,
-      retweets: 18,
-      replies: 9,
-      hasImage: false
-    },
-    {
-      id: 4,
-      content: "Festival season is here! Preparing for Tihar celebrations 🪔 Time to make sel roti and decorate the house. Looking forward to celebrating with family and friends! #Tihar #NepalFestival",
-      timestamp: "Nov 4, 2024",
-      likes: 34,
-      retweets: 15,
-      replies: 7,
-      hasImage: false
-    }
-  ];
-
   const renderTabContent = () => {
     switch(activeTab) {
       case 'posts':
         return (
           <div className="posts-container">
-            {posts.map(post => (
-              <div key={post.id} className="tweet">
-                <div className="tweet-avatar">
-                  <div className="avatar-placeholder">
-                    {userProfile.username.substring(0, 2).toUpperCase()}
-                  </div>
-                </div>
-                <div className="tweet-content">
-                  <div className="tweet-header">
-                    <span className="tweet-author">{userProfile.username}</span>
-                    {userProfile.verified && (
-                      <svg className="verified-badge" width="16" height="16" viewBox="0 0 24 24" fill="#1d9bf0">
-                        <path d="M22.5 12.5c0-1.58-.875-2.95-2.148-3.6.154-.435.238-.905.238-1.4 0-2.21-1.71-3.998-3.818-3.998-.47 0-.92.084-1.336.25C14.818 2.415 13.51 1.5 12 1.5s-2.816.917-3.437 2.25c-.415-.165-.866-.25-1.336-.25-2.11 0-3.818 1.79-3.818 4 0 .494.083.964.237 1.4-1.272.65-2.147 2.018-2.147 3.6 0 1.495.782 2.798 1.942 3.486-.02.17-.032.34-.032.514 0 2.21 1.708 4 3.818 4 .47 0 .92-.086 1.335-.25.62 1.334 1.926 2.25 3.437 2.25 1.512 0 2.818-.916 3.437-2.25.415.163.865.248 1.336.248 2.11 0 3.818-1.79 3.818-4 0-.174-.012-.344-.033-.513 1.158-.687 1.943-1.99 1.943-3.484zm-6.616-3.334l-4.334 6.5c-.145.217-.382.334-.625.334-.143 0-.288-.04-.416-.126l-.115-.094-2.415-2.415c-.293-.293-.293-.768 0-1.06s.768-.294 1.06 0l1.77 1.767 3.825-5.74c.23-.345.696-.436 1.04-.207.346.23.44.696.21 1.04z"/>
-                      </svg>
-                    )}
-                    <span className="tweet-handle">{userProfile.handle}</span>
-                    <span className="tweet-time">{post.timestamp}</span>
-                  </div>
-                  <div className="tweet-text">
-                    {post.content}
-                  </div>
-                  {post.hasImage && (
-                    <div className="tweet-media">
-                      <div className="media-placeholder">
-                        <div className="media-content">
-                          <img src={post.imageUrl} alt="Post content" style={{width: '100%', height: '200px', objectFit: 'cover', borderRadius: '16px'}} />
+            {loading ? (
+              <div className="tab-content">Loading tweets...</div>
+            ) : error ? (
+              <div className="tab-content">Error loading tweets: {error}</div>
+            ) : userTweets.length === 0 ? (
+              <div className="tab-content">No tweets yet</div>
+            ) : (
+              userTweets.map(tweet => (
+                <div key={tweet.id} className="tweet">
+                  <div className="tweet-content">
+                    <div className="tweet-header">
+                      <span className="tweet-author">{tweet.user?.username || 'Unknown'}</span>
+                      <span className="tweet-handle">@{tweet.user?.username || 'unknown'}</span>
+                      <span className="tweet-time">{new Date(tweet.createdAt).toLocaleDateString()}</span>
+                    </div>
+                    <div className="tweet-text">
+                      {tweet.content}
+                    </div>
+                    {tweet.mediaUrl && (
+                      <div className="tweet-media">
+                        <div className="media-placeholder">
+                          <div className="media-content">
+                            <img src={tweet.mediaUrl} alt="Tweet media" style={{width: '100%', height: '200px', objectFit: 'cover', borderRadius: '16px'}} />
+                          </div>
                         </div>
                       </div>
+                    )}
+                    <div className="tweet-actions">
+                      <button className="action-btn" title="Reply">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="#536471">
+                          <path d="M1.751 10c0-4.42 3.584-8 8.005-8h4.366c4.49 0 8.129 3.64 8.129 8.13 0 2.96-1.607 5.68-4.196 7.11l-2.26 1.23c-.51.28-1.1.28-1.61 0l-2.26-1.23C4.307 15.68 2.751 12.96 2.751 10z"/>
+                        </svg>
+                        <span>{tweet.repliesCount || 0}</span>
+                      </button>
+                      <button className="action-btn" title="Repost">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="#536471">
+                          <path d="M4.5 3.88l4.432 4.14-1.364 1.46L5.5 6.55V16c0 1.1.9 2 2 2h13v-2H7.5V6.55l-2.068 1.93-1.364-1.46L4.5 3.88z"/>
+                        </svg>
+                        <span>{tweet.retweetsCount || 0}</span>
+                      </button>
+                      <button className="action-btn" title="Like">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="#536471">
+                          <path d="M16.697 5.5c-1.222-.06-2.679.51-3.89 2.16l-.805 1.09-.806-1.09C10.084 6.01 8.627 5.41 7.405 5.5c-1.243.06-2.356.52-3.149 1.38S3 8.22 3 9.5c0 1.28.62 2.36 1.38 3.19s1.95 1.38 3.193 1.38c1.243 0 2.356-.52 3.149-1.38l.805-1.09.806 1.09c.793.86 1.906 1.38 3.149 1.38s2.356-.52 3.149-1.38S20 10.78 20 9.5s-.62-2.36-1.38-3.19S16.94 5.44 15.697 5.5z"/>
+                        </svg>
+                        <span>{tweet.likesCount || 0}</span>
+                      </button>
+                      {/* Delete button for user's own tweets */}
+                      <button 
+                        className="action-btn delete-btn" 
+                        title="Delete"
+                        onClick={() => handleDeleteTweet(tweet.id)}
+                      >
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="#f4212e">
+                          <path d="M16 6V4.5C16 3.12 14.88 2 13.5 2h-3C9.11 2 8 3.12 8 4.5V6H3v2h2v12c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V8h2V6h-5zM10 4.5c0-.28.22-.5.5-.5h3c.28 0 .5.22.5.5V6h-4V4.5zM17 20H7V8h10v12z"/>
+                        </svg>
+                      </button>
                     </div>
-                  )}
-                  <div className="tweet-actions">
-                    <button className="action-btn" title="Reply">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="#536471">
-                        <path d="M1.751 10c0-4.42 3.584-8 8.005-8h4.366c4.49 0 8.129 3.64 8.129 8.13 0 2.96-1.607 5.68-4.196 7.11l-2.26 1.23c-.51.28-1.1.28-1.61 0l-2.26-1.23C4.307 15.68 2.751 12.96 2.751 10z"/>
-                      </svg>
-                      <span>{post.replies}</span>
-                    </button>
-                    <button className="action-btn" title="Repost">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="#536471">
-                        <path d="M4.5 3.88l4.432 4.14-1.364 1.46L5.5 6.55V16c0 1.1.9 2 2 2h13v-2H7.5V6.55l-2.068 1.93-1.364-1.46L4.5 3.88z"/>
-                      </svg>
-                      <span>{post.retweets}</span>
-                    </button>
-                    <button className="action-btn" title="Like">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="#536471">
-                        <path d="M16.697 5.5c-1.222-.06-2.679.51-3.89 2.16l-.805 1.09-.806-1.09C10.084 6.01 8.627 5.41 7.405 5.5c-1.243.06-2.356.52-3.149 1.38S3 8.22 3 9.5c0 1.28.62 2.36 1.38 3.19s1.95 1.38 3.193 1.38c1.243 0 2.356-.52 3.149-1.38l.805-1.09.806 1.09c.793.86 1.906 1.38 3.149 1.38s2.356-.52 3.149-1.38S20 10.78 20 9.5s-.62-2.36-1.38-3.19S16.94 5.44 15.697 5.5z"/>
-                      </svg>
-                      <span>{post.likes}</span>
-                    </button>
-                    <button className="action-btn" title="View">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="#536471">
-                        <path d="M8.75 21V3h2v18h-2zM18 21V8.5h2V21h-2zM4 21l.004-10h2L6 21H4zm9.248 0v-7h2v7h-2z"/>
-                      </svg>
-                      <span>{post.views}</span>
-                    </button>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         );
       case 'replies':
-        return <div className="tab-content">No replies yet</div>;
+        return (
+          <div className="posts-container">
+            <div className="tab-content">No replies yet</div>
+          </div>
+        );
       case 'likes':
-        return <div className="tab-content">No likes yet</div>;
+        return (
+          <div className="posts-container">
+            <div className="tab-content">No likes yet</div>
+          </div>
+        );
       default:
         return null;
     }
@@ -347,6 +366,9 @@ const Profile = () => {
             <h1>{userProfile.username}</h1>
             <p>{userProfile.postsCount} posts</p>
           </div>
+          <button className="refresh-btn" onClick={refreshProfileData} disabled={loading}>
+            🔄
+          </button>
         </div>
       </div>
 
@@ -357,10 +379,6 @@ const Profile = () => {
 
       {/* Profile Info */}
       <div className="profile-info">
-        <div className="profile-avatar-container">
-          <img src={userProfile.profileImage} alt="Profile" className="profile-avatar" />
-        </div>
-        
         <div className="profile-details">
           <div className="profile-name-section">
             <div className="profile-name">
@@ -374,16 +392,12 @@ const Profile = () => {
             <p>{userProfile.bio}</p>
           </div>
           
-          <div className="profile-meta">
-            <span className="join-date">📅 Joined {userProfile.joinDate}</span>
-          </div>
-          
           <div className="profile-stats">
             <span className="stat clickable" onClick={() => setShowFollowingModal(true)}>
-              <strong>{userProfile.following}</strong> Following
+              <strong>{userProfile.followingCount || 0}</strong> Following
             </span>
             <span className="stat clickable" onClick={() => setShowFollowersModal(true)}>
-              <strong>{userProfile.followers}</strong> Followers
+              <strong>{userProfile.followersCount || 0}</strong> Followers
             </span>
           </div>
         </div>
@@ -460,10 +474,10 @@ const Profile = () => {
       )}
 
       {/* Followers Modal */}
-      {showFollowersModal && renderFollowModal('Followers', followersData)}
+      {showFollowersModal && renderFollowModal('Followers', followers)}
 
       {/* Following Modal */}
-      {showFollowingModal && renderFollowModal('Following', followingData)}
+      {showFollowingModal && renderFollowModal('Following', following)}
     </div>
   );
 };

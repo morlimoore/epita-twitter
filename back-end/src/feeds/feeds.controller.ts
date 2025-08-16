@@ -23,4 +23,20 @@ export class FeedsController {
             total: result.total,
         };
     }
+
+    @Get('for-you')
+    async getForYouFeed(
+        @Request() req,
+        @Query('page', new ParseIntPipe({ optional: true })) page: number = 1,
+        @Query('limit', new ParseIntPipe({ optional: true })) limit: number = 20,
+    ): Promise<FeedResponseDto> {
+        const result = await this.feedsService.getForYouFeed(req.user.id, page, limit);
+
+        return {
+            success: true,
+            data: result.tweets,
+            message: `Retrieved ${result.tweets.length} for you tweets`,
+            total: result.total,
+        };
+    }
 }

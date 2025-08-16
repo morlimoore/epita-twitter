@@ -36,11 +36,6 @@ export class FeedsService {
             // Calculate pagination
             const skip = (page - 1) * limit;
 
-            // If no followings yet, just return empty results
-            if (followingIds.length === 0) {
-                return { tweets: [], total: 0 };
-            }
-
             // Query tweets from followed users, with only existing relations
             const [tweets, total] = await this.tweetRepository.findAndCount({
                 where: { user: { id: In(followingIds) } },
@@ -56,6 +51,33 @@ export class FeedsService {
             };
         } catch (error) {
             console.error('Error getting user feed:', error);
+            throw error;
+        }
+    }
+
+    async getForYouFeed(
+        userId: string,
+        page: number = 1,
+        limit: number = 20,
+    ): Promise<{ tweets: TweetResponseDto[]; total: number }> {
+        try {
+            // Calculate pagination
+            const skip = (page - 1) * limit;
+
+            // Query ALL tweets from all users, ordered by most recent
+            const [tweets, total] = await this.tweetRepository.findAndCount({
+                relations: ['user'], // Include user information
+                order: { createdAt: 'DESC' },
+                skip,
+                take: limit,
+            });
+
+            return {
+                tweets: TweetMapper.toResponseDtoList(tweets),
+                total
+            };
+        } catch (error) {
+            console.error('Error getting for you feed:', error);
             throw error;
         }
     }

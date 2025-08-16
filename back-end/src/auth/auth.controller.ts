@@ -1,4 +1,4 @@
-import { Body, Controller, Post, UnauthorizedException, HttpCode, HttpStatus } from '@nestjs/common';
+import { Body, Controller, Post, UnauthorizedException, HttpCode, HttpStatus, ConflictException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { CreateUserDto } from '../users/dto/create-user.dto';
 
@@ -9,7 +9,14 @@ export class AuthController {
     @Post('register')
     @HttpCode(HttpStatus.CREATED)
     async create(@Body() createUserDto: CreateUserDto) {
-        return this.authService.registerUser(createUserDto);
+        try {
+            return await this.authService.registerUser(createUserDto);
+        } catch (error) {
+            if (error instanceof ConflictException) {
+                throw error;
+            }
+            throw error;
+        }
     }
 
     @Post('login')

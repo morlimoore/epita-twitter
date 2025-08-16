@@ -12,7 +12,8 @@ import {
     Request,
     ParseFilePipe,
     MaxFileSizeValidator,
-    FileTypeValidator
+    FileTypeValidator,
+    Query
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { UsersService } from './users.service';
@@ -78,6 +79,23 @@ export class UsersController {
     @Get('profile/:userId')
     async getPublicProfile(@Param('userId') userId: string): Promise<UserProfileDto> {
         return this.usersService.getPublicProfile(userId);
+    }
+
+    // Get all users (for suggestions)
+    @Get()
+    @UseGuards(JwtAuthGuard)
+    async getAllUsers(@Request() req) {
+        return this.usersService.getAllUsers(req.user.id);
+    }
+
+    // Search users by username or email
+    @Get('search')
+    @UseGuards(JwtAuthGuard)
+    async searchUsers(@Request() req, @Query('q') query: string) {
+        if (!query || query.trim() === '') {
+            return [];
+        }
+        return this.usersService.searchUsers(query.trim());
     }
 
     // // Get follower count

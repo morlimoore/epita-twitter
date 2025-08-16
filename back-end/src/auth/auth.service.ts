@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -19,14 +19,48 @@ export class AuthService {
     ) { }
 
     async registerUser(createUserDto: CreateUserDto) {
-        const saltRounds = 10;
-        const hashedPassword = await bcrypt.hash(createUserDto.password, saltRounds);
-        const user = this.userRepository.create({
-            ...createUserDto,
-            password: hashedPassword,
-        });
-        const savedUser = await this.userRepository.save(user);
-        return this.userMapper.toDto(savedUser);
+        try {
+            // Check if user already exists
+            const existingUser = await this.userRepository.findOne({
+                where: [
+                    { email: createUserDto.email },
+                    { username: createUserDto.username }
+                ]
+            });
+
+            if (existingUser) {
+                if (existingUser.email === createUserDto.email) {
+                    throw new ConflictException('Email already exists');
+                }
+                if (existingUser.username === createUserDto.username) {
+                    throw new ConflictException('Username already exists');
+                }
+            }
+
+            const saltRounds = 10;
+            const hashedPassword = await bcrypt.hash(createUserDto.password, saltRounds);
+            const user = this.userRepository.create({
+                ...createUserDto,
+                password: hashedPassword,
+            });
+            const savedUser = await this.userRepository.save(user);
+            return this.userMapper.toDto(savedUser);
+        } catch (error) {
+            if (error instanceof ConflictException) {
+                throw error;
+            }
+            // Handle database constraint errors
+            if (error.code === '23505') { // PostgreSQL unique violation
+                if (error.constraint?.includes('email')) {
+                    throw new ConflictException('Email already exists');
+                }
+                if (error.constraint?.includes('username')) {
+                    throw new ConflictException('Username already exists');
+                }
+                throw new ConflictException('User already exists');
+            }
+            throw error;
+        }
     }
 
     async validateUser(email: string, password: string) {

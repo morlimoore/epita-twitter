@@ -13,7 +13,7 @@ const LogoutScreen = ({ onCancel, onConfirmLogout }) => {
       await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API delay
       
       // Clear any stored tokens/user data
-      localStorage.removeItem('authToken');
+      localStorage.removeItem('token');
       localStorage.removeItem('userData');
       
       // Call the parent callback

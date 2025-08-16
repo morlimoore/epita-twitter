@@ -1,74 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import '../styles/Dashboard.css';
-import apiService from '../services/api';
+import { userAPI, tweetAPI, feedAPI, notificationAPI, followAPI, pollAPI } from '../services/api';
+import { FormattedTweetText, extractHashtags, extractMentions } from '../utils/textFormatter';
 import Profile from './Profile';
 import Settings from './Settings';
 import LogoutScreen from './LogoutScreen';
-
-// Mock data for demo
-const mockUsers = [
-  { id: 1, username: 'MrBeast', handle: '@MrBeast', verified: true, followers: '200M', bio: 'Making the world a better place through entertainment' },
-  { id: 2, username: 'Elon Musk', handle: '@elonmusk', verified: true, followers: '150M', bio: 'Tesla, SpaceX, Neuralink, Boring Company' },
-  { id: 3, username: 'Taylor Swift', handle: '@taylorswift13', verified: true, followers: '95M', bio: 'Singer-songwriter' },
-  { id: 4, username: 'Cristiano Ronaldo', handle: '@Cristiano', verified: true, followers: '600M', bio: 'Professional footballer' },
-  { id: 5, username: 'Kylie Jenner', handle: '@KylieJenner', verified: true, followers: '400M', bio: 'Beauty entrepreneur' },
-  { id: 6, username: 'Dwayne Johnson', handle: '@TheRock', verified: true, followers: '400M', bio: 'Actor, producer, businessman' },
-  { id: 7, username: 'Ariana Grande', handle: '@ArianaGrande', verified: true, followers: '380M', bio: 'Singer, songwriter, actress' },
-  { id: 8, username: 'Kim Kardashian', handle: '@KimKardashian', verified: true, followers: '360M', bio: 'Reality TV star, businesswoman' }
-];
-
-const mockPosts = [
-  {
-    id: 1,
-    user: mockUsers[0],
-    content: "Just finished filming the most insane challenge yet! 🤯 Can't wait to share it with you all. This one is going to break the internet! 💪",
-    timestamp: "2h",
-    likes: "2.4K",
-    retweets: "892",
-    replies: "45.2K",
-    views: "12.8M"
-  },
-  {
-    id: 2,
-    user: mockUsers[1],
-    content: "Tesla Cybertruck production ramping up nicely! 🚗⚡ The future of electric vehicles is here.",
-    timestamp: "1h",
-    likes: "45.2K",
-    retweets: "12.3K",
-    replies: "8.9K",
-    views: "2.1M"
-  },
-  {
-    id: 3,
-    user: mockUsers[2],
-    content: "Working on new music and I'm so excited to share it with you all! 🎵✨ The creative process is magical.",
-    timestamp: "3h",
-    likes: "89.1K",
-    retweets: "23.4K",
-    replies: "15.6K",
-    views: "4.2M"
-  },
-  {
-    id: 4,
-    user: mockUsers[3],
-    content: "Great game today! The team played with heart and determination. Thank you for all the support! ⚽❤️",
-    timestamp: "5h",
-    likes: "156.7K",
-    retweets: "34.2K",
-    replies: "12.8K",
-    views: "8.9M"
-  },
-  {
-    id: 5,
-    user: mockUsers[4],
-    content: "New Kylie Cosmetics collection dropping soon! 💄✨ You're going to love these shades.",
-    timestamp: "4h",
-    likes: "234.5K",
-    retweets: "45.6K",
-    replies: "18.9K",
-    views: "6.7M"
-  }
-];
+import NotificationManager from '../utils/notifications';
 
 // Page Components
 const HomePage = ({ 
@@ -98,9 +35,36 @@ const HomePage = ({
   setSelectedImage,
   setImagePreview,
   setSelectedLocation,
-  isPostButtonDisabled
+  isPostButtonDisabled,
+  loading,
+  error,
+  likedTweets,
+  likeCounts,
+  likingTweets,
+  handleLike,
+  handleReply,
+  handleRetweet,
+  handleViewTweet,
+  tweets,
+  userProfile,
+  setTweetsLoading,
+  loadFeedData,
+  handleSearch,
+  onTabChange
 }) => {
   const [activeTab, setActiveTab] = useState('for-you');
+
+  // Handle tab changes and notify parent
+  const handleTabChange = (newTab) => {
+    console.log('🔀 HomePage tab changed to:', newTab);
+    setActiveTab(newTab);
+    if (onTabChange) {
+      console.log('📞 Calling onTabChange callback with:', newTab);
+      onTabChange(newTab);
+    } else {
+      console.warn('⚠️ No onTabChange callback provided!');
+    }
+  };
 
   // Enhanced emoji list with more categories
   const commonEmojis = [
@@ -129,13 +93,13 @@ const HomePage = ({
       <div className="home-navigation">
         <button 
           className={`nav-tab ${activeTab === 'for-you' ? 'active' : ''}`}
-          onClick={() => setActiveTab('for-you')}
+          onClick={() => handleTabChange('for-you')}
         >
           For you
         </button>
         <button 
           className={`nav-tab ${activeTab === 'following' ? 'active' : ''}`}
-          onClick={() => setActiveTab('following')}
+          onClick={() => handleTabChange('following')}
         >
           Following
         </button>
@@ -206,6 +170,9 @@ const HomePage = ({
                   onClick={() => {
                     setSelectedImage(null);
                     setImagePreview(null);
+                    // Reset file input
+                    const fileInputs = document.querySelectorAll('input[type="file"]');
+                    fileInputs.forEach(input => input.value = '');
                   }}
                 >
                   ×
@@ -216,7 +183,7 @@ const HomePage = ({
             {/* Location Display */}
             {selectedLocation && (
               <div className="location-display">
-                📍 Location added
+                📍 {selectedLocation.name || `Location: ${selectedLocation.latitude?.toFixed(4)}, ${selectedLocation.longitude?.toFixed(4)}`}
                 <button 
                   className="remove-location"
                   onClick={() => setSelectedLocation(null)}
@@ -315,56 +282,117 @@ const HomePage = ({
        <div className="feed">
          <div className="feed-header">
            <span className="show-posts-link">
-             {filteredPosts.length > 0 ? `${filteredPosts.length} posts` : 'No posts found'}
+             {loading ? 'Loading...' : filteredPosts.length > 0 ? `${filteredPosts.length} posts` : 'No posts found'}
            </span>
          </div>
+         
+         {error && (
+           <div className="error-message" style={{padding: '16px', color: '#d93025', backgroundColor: '#fce8e6', borderRadius: '8px', margin: '16px'}}>
+             {error}
+             {error.includes('session has expired') && (
+               <button 
+                 onClick={() => window.location.reload()}
+                 style={{
+                   marginLeft: '12px', 
+                   padding: '8px 16px', 
+                   backgroundColor: '#7371FC', 
+                   color: 'white', 
+                   border: 'none', 
+                   borderRadius: '4px', 
+                   cursor: 'pointer'
+                 }}
+               >
+                 Refresh Page
+               </button>
+             )}
+           </div>
+         )}
+         
          <div className="tweets-container">
-           {filteredPosts.length > 0 ? (
-             filteredPosts.map(post => (
-               <div key={post.id} className="tweet">
+           {loading ? (
+             <div className="loading-state" style={{padding: '20px', textAlign: 'center'}}>
+               Loading tweets...
+             </div>
+           ) : filteredPosts.length > 0 ? (
+             filteredPosts.map(tweet => (
+               <div key={tweet.id} className="tweet">
                  <div className="tweet-avatar">
                    <div className="avatar-placeholder">
-                     {post.user.username.substring(0, 2).toUpperCase()}
+                     {tweet.user?.username?.substring(0, 2).toUpperCase() || 'U'}
                    </div>
                  </div>
                  <div className="tweet-content">
                    <div className="tweet-header">
-                     <span className="tweet-author">{post.user.username}</span>
-                     {post.user.verified && (
+                     <span className="tweet-author">{tweet.user?.username || 'Unknown'}</span>
+                     {tweet.user?.verified && (
                        <svg className="verified-badge" width="16" height="16" viewBox="0 0 24 24" fill="#1d9bf0">
                          <path d="M22.5 12.5c0-1.58-.875-2.95-2.148-3.6.154-.435.238-.905.238-1.4 0-2.21-1.71-3.998-3.818-3.998-.47 0-.92.084-1.336.25C14.818 2.415 13.51 1.5 12 1.5s-2.816.917-3.437 2.25c-.415-.165-.866-.25-1.336-.25-2.11 0-3.818 1.79-3.818 4 0 .494.083.964.237 1.4-1.272.65-2.147 2.018-2.147 3.6 0 1.495.782 2.798 1.942 3.486-.02.17-.032.34-.032.514 0 2.21 1.708 4 3.818 4 .47 0 .92-.086 1.335-.25.62 1.334 1.926 2.25 3.437 2.25 1.512 0 2.818-.916 3.437-2.25.415.163.865.248 1.336.248 2.11 0 3.818-1.79 3.818-4 0-.174-.012-.344-.033-.513 1.158-.687 1.943-1.99 1.943-3.484zm-6.616-3.334l-4.334 6.5c-.145.217-.382.334-.625.334-.143 0-.288-.04-.416-.126l-.115-.094-2.415-2.415c-.293-.293-.293-.768 0-1.06s.768-.294 1.06 0l1.77 1.767 3.825-5.74c.23-.345.696-.436 1.04-.207.346.23.44.696.21 1.04z"/>
                        </svg>
                      )}
-                     <span className="tweet-handle">{post.user.handle}</span>
-                     <span className="tweet-time">{post.timestamp}</span>
+                     <span className="tweet-handle">@{tweet.user?.username || 'unknown'}</span>
+                     <span className="tweet-time">
+                       {tweet.createdAt ? new Date(tweet.createdAt).toLocaleDateString() : 'now'}
+                     </span>
                    </div>
                    <div className="tweet-text">
-                     {post.content}
+                     <FormattedTweetText text={tweet.content || ''} />
                    </div>
+                   {tweet.poll && (
+                     <div className="tweet-poll">
+                       <h4>{tweet.poll.question}</h4>
+                       {tweet.poll.options?.map((option, index) => (
+                         <div key={index} className="poll-option">
+                           <button className="poll-vote-btn">
+                             {option.text || option}
+                           </button>
+                         </div>
+                       ))}
+                     </div>
+                   )}
                    <div className="tweet-actions">
-                     <button className="action-btn" title="Reply">
+                     <button 
+                       className="action-btn" 
+                       title="Reply"
+                       onClick={() => handleReply(tweet.id)}
+                     >
                        <svg width="18" height="18" viewBox="0 0 24 24" fill="#536471">
                          <path d="M1.751 10c0-4.42 3.584-8 8.005-8h4.366c4.49 0 8.129 3.64 8.129 8.13 0 2.96-1.607 5.68-4.196 7.11l-2.26 1.23c-.51.28-1.1.28-1.61 0l-2.26-1.23C4.307 15.68 2.751 12.96 2.751 10z"/>
                        </svg>
-                       <span>{post.replies}</span>
+                       <span>{tweet.repliesCount || 0}</span>
                      </button>
-                     <button className="action-btn" title="Repost">
+                     <button 
+                       className="action-btn" 
+                       title="Repost"
+                       onClick={() => handleRetweet(tweet.id)}
+                     >
                        <svg width="18" height="18" viewBox="0 0 24 24" fill="#536471">
                          <path d="M4.5 3.88l4.432 4.14-1.364 1.46L5.5 6.55V16c0 1.1.9 2 2 2h13v-2H7.5V6.55l-2.068 1.93-1.364-1.46L4.5 3.88z"/>
                        </svg>
-                       <span>{post.retweets}</span>
+                       <span>{tweet.retweetsCount || 0}</span>
                      </button>
-                     <button className="action-btn" title="Like">
-                       <svg width="18" height="18" viewBox="0 0 24 24" fill="#536471">
-                         <path d="M16.697 5.5c-1.222-.06-2.679.51-3.89 2.16l-.805 1.09-.806-1.09C10.084 6.01 8.627 5.41 7.405 5.5c-1.243.06-2.356.52-3.149 1.38S3 8.22 3 9.5c0 1.28.62 2.36 1.38 3.19s1.95 1.38 3.193 1.38c1.243 0 2.356-.52 3.149-1.38l.805-1.09.806 1.09c.793.86 1.906 1.38 3.149 1.38s2.356-.52 3.149-1.38S20 10.78 20 9.5s-.62-2.36-1.38-3.19S16.94 5.44 15.697 5.5z"/>
+                     <button 
+                       className={`action-btn ${likedTweets.has(tweet.id) ? 'liked' : ''}`} 
+                       title={likedTweets.has(tweet.id) ? 'Unlike' : 'Like'}
+                       onClick={() => handleLike(tweet.id)}
+                       disabled={likingTweets.has(tweet.id)}
+                     >
+                       <svg width="18" height="18" viewBox="0 0 24 24" fill={likedTweets.has(tweet.id) ? "#f91880" : "#536471"}>
+                         <path d={likedTweets.has(tweet.id) 
+                           ? "M12 21.638h-.014C9.403 21.59 1.95 14.856 1.95 8.478c0-3.064 2.525-5.754 5.403-5.754 2.29 0 3.83 1.58 4.646 2.73.814-1.148 2.354-2.73 4.645-2.73 2.88 0 5.404 2.69 5.404 5.755 0 6.376-7.454 13.11-10.037 13.157H12z"
+                           : "M16.697 5.5c-1.222-.06-2.679.51-3.89 2.16l-.805 1.09-.806-1.09C10.084 6.01 8.627 5.41 7.405 5.5c-1.243.06-2.356.52-3.149 1.38S3 8.22 3 9.5c0 1.28.62 2.36 1.38 3.19s1.95 1.38 3.193 1.38c1.243 0 2.356-.52 3.149-1.38l.805-1.09.806 1.09c.793.86 1.906 1.38 3.149 1.38s2.356-.52 3.149-1.38S20 10.78 20 9.5s-.62-2.36-1.38-3.19S16.94 5.44 15.697 5.5z"
+                         } />
                        </svg>
-                       <span>{post.likes}</span>
+                       <span>{likeCounts[tweet.id] ?? tweet.likesCount ?? 0}</span>
                      </button>
-                     <button className="action-btn" title="View">
+                     <button 
+                       className="action-btn" 
+                       title="View"
+                       onClick={() => handleViewTweet(tweet.id)}
+                     >
                        <svg width="18" height="18" viewBox="0 0 24 24" fill="#536471">
                          <path d="M8.75 21V3h2v18h-2zM18 21V8.5h2V21h-2zM4 21l.004-10h2L6 21H4zm9.248 0v-7h2v7h-2z"/>
                        </svg>
-                       <span>{post.views}</span>
+                       <span>{tweet.viewsCount || 0}</span>
                      </button>
                    </div>
                  </div>
@@ -372,7 +400,79 @@ const HomePage = ({
              ))
            ) : (
              <div className="no-posts">
-               <p>No posts match your current filter.</p>
+               <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor" style={{marginBottom: '16px', opacity: 0.6}}>
+                 <path d="M8.75 21V3h2v18h-2zM18 21V8.5h2V21h-2zM4 21l.004-10h2L6 21H4zm9.248 0v-7h2v7h-2z"/>
+               </svg>
+               <p className="welcome-message">
+                 {error ? error : 'Welcome to Twitter! This is where you\'ll see tweets from people you follow. Start by creating your first tweet above!'}
+               </p>
+               {/* Debug info */}
+               <div style={{marginTop: '20px', padding: '10px', backgroundColor: '#f8f9fa', border: '1px solid #e1e8ed', borderRadius: '8px', fontSize: '14px'}}>
+                 <strong>Debug Info:</strong><br/>
+                 • Tweets loaded: {tweets.length}<br/>
+                 • Filtered posts: {filteredPosts.length}<br/>
+                 • Loading: {loading ? 'Yes' : 'No'}<br/>
+                 • Auth token: {localStorage.getItem('token') ? 'Present' : 'Missing'}<br/>
+                 • User profile: {userProfile ? 'Loaded' : 'Not loaded'}<br/>
+                 {error && <span style={{color: 'red'}}>• Error: {error}</span>}
+                 <br/><br/>
+                 <button 
+                   onClick={() => {
+                     console.log('🧪 Manual feed reload triggered');
+                     setTweetsLoading(true);
+                     loadFeedData('for-you').catch(console.error);
+                   }}
+                   style={{
+                     padding: '8px 16px',
+                     backgroundColor: '#1d9bf0',
+                     color: 'white',
+                     border: 'none',
+                     borderRadius: '6px',
+                     cursor: 'pointer',
+                     marginRight: '10px'
+                   }}
+                 >
+                   🔄 Reload Feed
+                 </button>
+                 <button 
+                   onClick={() => {
+                     console.log('🧪 Current states:');
+                     console.log('User:', user);
+                     console.log('UserProfile:', userProfile);
+                     console.log('Tweets:', tweets);
+                     console.log('FilteredPosts:', filteredPosts);
+                     console.log('ActiveTab:', activeTab);
+                     console.log('Token:', localStorage.getItem('token')?.substring(0, 50) + '...');
+                   }}
+                   style={{
+                     padding: '8px 16px',
+                     backgroundColor: '#657786',
+                     color: 'white',
+                     border: 'none',
+                     borderRadius: '6px',
+                     cursor: 'pointer',
+                     marginRight: '10px'
+                   }}
+                 >
+                   📊 Debug Info
+                 </button>
+                 <button 
+                   onClick={async () => {
+                     console.log('🧪 Testing search with "ash"');
+                     await handleSearch('ash');
+                   }}
+                   style={{
+                     padding: '8px 16px',
+                     backgroundColor: '#17bf63',
+                     color: 'white',
+                     border: 'none',
+                     borderRadius: '6px',
+                     cursor: 'pointer'
+                   }}
+                 >
+                   🔍 Test Search
+                 </button>
+               </div>
              </div>
            )}
          </div>
@@ -381,73 +481,159 @@ const HomePage = ({
   );
 };
 
-const NotificationsPage = () => (
-  <div className="page-content">
-    <div className="feed-header">
-      <h2>Notifications</h2>
-    </div>
-    <div className="notifications-content">
-      <div className="notification-item">
-        <div className="notification-avatar">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="#1da1f2">
-            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-          </svg>
-        </div>
-        <div className="notification-text">
-          <strong>John Doe</strong> liked your tweet
-        </div>
-        <div className="notification-time">2h</div>
-      </div>
-      <div className="notification-item">
-        <div className="notification-avatar">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="#1da1f2">
-            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-          </svg>
-        </div>
-        <div className="notification-text">
-          <strong>Jane Smith</strong> retweeted your tweet
-        </div>
-        <div className="notification-time">5h</div>
-      </div>
-    </div>
-  </div>
-);
+const NotificationsPage = () => {
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-const SettingsPage = () => (
-  <div className="page-content">
-    <div className="feed-header">
-      <h2>Settings</h2>
-    </div>
-    <div className="settings-content">
-      <div className="settings-section">
-        <h3>Account</h3>
-        <div className="setting-item">
-          <span>Username</span>
-          <button className="edit-btn">Edit</button>
-        </div>
-        <div className="setting-item">
-          <span>Email</span>
-          <button className="edit-btn">Edit</button>
+  useEffect(() => {
+    const loadNotifications = async () => {
+      try {
+        setLoading(true);
+        const response = await notificationAPI.getAll();
+        // Handle the backend response structure - check if it has payload property
+        const notificationsData = response?.payload || response || [];
+        setNotifications(Array.isArray(notificationsData) ? notificationsData : []);
+      } catch (error) {
+        console.error('Error loading notifications:', error);
+        setError('Failed to load notifications');
+        setNotifications([]); // Ensure notifications is always an array
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    // Initial load
+    loadNotifications();
+    
+    // Set up polling for real-time notifications (every 30 seconds)
+    const notificationPolling = setInterval(loadNotifications, 30000);
+    
+    return () => clearInterval(notificationPolling);
+  }, []);
+
+  const handleMarkAsRead = async (notificationId) => {
+    try {
+      await notificationAPI.markAsRead(notificationId);
+      // Update local state to mark as read
+      setNotifications(prev => 
+        prev.map(notif => 
+          notif.id === notificationId 
+            ? { ...notif, isRead: true }
+            : notif
+        )
+      );
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    try {
+      await notificationAPI.markAllAsRead();
+      setNotifications(prev => 
+        prev.map(notif => ({ ...notif, isRead: true }))
+      );
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+    }
+  };
+
+  const formatTimeAgo = (timestamp) => {
+    const now = new Date();
+    const notificationTime = new Date(timestamp);
+    const diffInHours = Math.floor((now - notificationTime) / (1000 * 60 * 60));
+    
+    if (diffInHours < 1) return 'now';
+    if (diffInHours < 24) return `${diffInHours}h`;
+    const diffInDays = Math.floor(diffInHours / 24);
+    return `${diffInDays}d`;
+  };
+
+  return (
+    <div className="page-content">
+      <div className="feed-header">
+        <h2>Notifications</h2>
+        <div className="notification-actions">
+          {Array.isArray(notifications) && notifications.some(n => !n.isRead) && (
+            <button className="mark-all-read-btn" onClick={handleMarkAllAsRead}>
+              Mark all as read
+            </button>
+          )}
+          <button className="notification-settings-btn" title="Notification Settings">
+            ⚙️
+          </button>
         </div>
       </div>
-      <div className="settings-section">
-        <h3>Privacy</h3>
-        <div className="setting-item">
-          <span>Private Account</span>
-          <input type="checkbox" />
-        </div>
+      <div className="notifications-content">
+        {loading && <div className="loading">Loading notifications...</div>}
+        {error && <div className="error">{error}</div>}
+        {!loading && !error && Array.isArray(notifications) && notifications.length === 0 && (
+          <div className="empty-state">
+            <div className="empty-icon">🔔</div>
+            <h3>No notifications yet</h3>
+            <p>When someone likes, retweets, or mentions you, you'll see it here.</p>
+          </div>
+        )}
+        {!loading && !error && Array.isArray(notifications) && notifications.map(notification => (
+          <div 
+            key={notification.id} 
+            className={`notification-item ${!notification.isRead ? 'unread' : ''}`}
+            onClick={() => !notification.isRead && handleMarkAsRead(notification.id)}
+          >
+            <div className="notification-icon">
+              {notification.type === 'like' && '❤️'}
+              {notification.type === 'retweet' && '🔁'}
+              {notification.type === 'follow' && '👤'}
+              {notification.type === 'mention' && '💬'}
+              {notification.type === 'reply' && '↩️'}
+            </div>
+            <div className="notification-avatar">
+              <img 
+                src={notification.fromUser?.profileImage || '/api/placeholder/40/40'} 
+                alt={notification.fromUser?.name || 'User'} 
+              />
+            </div>
+            <div className="notification-content">
+              <div className="notification-text">
+                <strong>{notification.fromUser?.name || 'Someone'}</strong> {notification.message}
+              </div>
+              {notification.tweetContent && (
+                <div className="notification-tweet-preview">
+                  "{notification.tweetContent}"
+                </div>
+              )}
+            </div>
+            <div className="notification-meta">
+              <div className="notification-time">
+                {formatTimeAgo(notification.createdAt)}
+              </div>
+              {!notification.isRead && <div className="unread-dot"></div>}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 const Dashboard = ({ user, onLogout }) => {
+  console.log('🚀 Dashboard component mounted with user:', user);
+  console.log('🚀 Token in localStorage:', localStorage.getItem('token') ? 'Present' : 'Missing');
+  
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('home');
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showTweetModal, setShowTweetModal] = useState(false);
+  const [showUsersModal, setShowUsersModal] = useState(false);
+
+  // Real data states
+  const [tweets, setTweets] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [tweetsLoading, setTweetsLoading] = useState(false);
+  const [error, setError] = useState('');
 
   // Post composer states
   const [postContent, setPostContent] = useState('');
@@ -465,19 +651,304 @@ const Dashboard = ({ user, onLogout }) => {
   const [filterType, setFilterType] = useState('all');
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [filteredUsers, setFilteredUsers] = useState([]);
-  const [filteredPosts, setFilteredPosts] = useState(mockPosts);
+  const [filteredPosts, setFilteredPosts] = useState([]);
 
-  // Search and filter functions
-  const handleSearch = (query) => {
+  // Like states
+  const [likedTweets, setLikedTweets] = useState(new Set());
+  const [likeCounts, setLikeCounts] = useState({});
+  const [likingTweets, setLikingTweets] = useState(new Set());
+
+  // Suggested users states
+  const [suggestedUsers, setSuggestedUsers] = useState([]);
+  const [followingUsers, setFollowingUsers] = useState(new Set());
+  const [loadingSuggestedUsers, setLoadingSuggestedUsers] = useState(false);
+  const [allUsers, setAllUsers] = useState([]);
+  const [loadingAllUsers, setLoadingAllUsers] = useState(false);
+  const [profileRefreshTrigger, setProfileRefreshTrigger] = useState(0);
+
+  // Initialize notifications
+  useEffect(() => {
+    const initializeNotifications = async () => {
+      // Request notification permissions
+      const hasPermission = await NotificationManager.requestPermission();
+      if (hasPermission) {
+        // Subscribe to push notifications
+        await NotificationManager.subscribeToPush();
+        console.log('Notifications initialized');
+      }
+    };
+
+    initializeNotifications();
+  }, []);
+
+  // Load feed based on active tab
+  const loadFeedData = async (tabType = 'for-you') => {
+    console.log('🔄 Loading feed data for tab:', tabType);
+    
+    // Check authentication status
+    const token = localStorage.getItem('token');
+    console.log('🔐 Auth token exists:', !!token);
+    if (token) {
+      console.log('🔐 Token preview:', token.substring(0, 20) + '...');
+    }
+    
+    try {
+      setTweetsLoading(true);
+      let feedResponse;
+      
+      if (tabType === 'for-you') {
+        console.log('📡 Calling getForYouFeed()');
+        feedResponse = await feedAPI.getForYouFeed();
+      } else if (tabType === 'following') {
+        console.log('📡 Calling getFollowingFeed()');
+        feedResponse = await feedAPI.getFollowingFeed();
+      } else {
+        console.log('📡 Calling getFeed()');
+        feedResponse = await feedAPI.getFeed();
+      }
+
+      // After handleAPIResponse(), the structure is {success, data, total}
+      const feed = feedResponse?.data || feedResponse || [];
+      console.log(`✅ Feed API Response for ${tabType}:`, feedResponse);
+      console.log('📊 Processed feed data:', feed);
+      console.log('📊 Feed is array?', Array.isArray(feed), 'Length:', feed.length);
+      
+      setTweets(Array.isArray(feed) ? feed : []);
+      setFilteredPosts(Array.isArray(feed) ? feed : []);
+      
+      if (Array.isArray(feed) && feed.length === 0) {
+        console.log('📊 No tweets found in feed');
+      }
+      
+      // Load like states for tweets
+      if (feed && feed.length > 0) {
+        const likeCounts = {};
+        const likedTweetIds = new Set();
+        
+        for (const tweet of feed) {
+          try {
+            const countResponse = await tweetAPI.getLikeCount(tweet.id);
+            // Extract count value from {count: number} response
+            likeCounts[tweet.id] = countResponse?.count ?? tweet.likesCount ?? 0;
+            
+            if (tweet.isLikedByCurrentUser) {
+              likedTweetIds.add(tweet.id);
+            }
+          } catch (error) {
+            console.error(`Error loading like data for tweet ${tweet.id}:`, error);
+            likeCounts[tweet.id] = tweet.likesCount || 0;
+          }
+        }
+        
+        setLikeCounts(likeCounts);
+        setLikedTweets(likedTweetIds);
+      }
+    } catch (error) {
+      console.error(`❌ Error loading ${tabType} feed:`, error);
+      
+      // Check for authentication errors
+      if (error.message?.includes('token') || error.message?.includes('401') || error.message?.includes('authentication')) {
+        console.warn('❌ Authentication error - user needs to log in');
+        setError('Please log in to view tweets');
+      } else {
+        console.error('❌ Feed loading error details:', error);
+        setError('Failed to load tweets. Please try again.');
+      }
+      
+      // Set empty arrays on error
+      setTweets([]);
+      setFilteredPosts([]);
+    } finally {
+      setTweetsLoading(false);
+    }
+  };
+
+  // Load user profile and tweets from API
+  useEffect(() => {
+    const loadUserData = async () => {
+      try {
+        setLoading(true);
+        setError(null); // Clear any previous errors
+        const token = localStorage.getItem('token');
+        if (!token) {
+          setError('Please log in to continue');
+          return;
+        }
+
+        // Get current user profile
+        const profileResponse = await userAPI.getCurrentUser();
+        const profile = profileResponse?.payload || profileResponse;
+        setUserProfile(profile);
+
+        // Load feed based on current active tab
+        await loadFeedData(activeTab);
+        
+      } catch (error) {
+        console.error('Error loading data:', error);
+        
+        // Handle token expiration specifically
+        if (error.message?.includes('expired') || error.message?.includes('invalid') || error.message === 'Token has expired' || error.message === 'Authentication required') {
+          setError(
+            <div className="token-expired-message">
+              <p>Your session has expired. Please refresh to continue.</p>
+              <button 
+                onClick={() => window.location.reload()} 
+                className="refresh-button"
+                style={{
+                  background: '#1da1f2',
+                  color: 'white',
+                  border: 'none',
+                  padding: '10px 20px',
+                  borderRadius: '20px',
+                  cursor: 'pointer',
+                  marginTop: '10px'
+                }}
+              >
+                Refresh Page
+              </button>
+            </div>
+          );
+          // Clear expired token
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+        } else {
+          setError(error.message || 'Failed to load data');
+        }
+        
+        // Set empty arrays as fallback to prevent undefined errors
+        setTweets([]);
+        setFilteredPosts([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    // Initial load
+    loadUserData();
+
+    // Set up polling for real-time feed updates (every 30 seconds)
+    const feedPolling = setInterval(async () => {
+      try {
+        await loadFeedData(activeTab);
+      } catch (error) {
+        console.error('Error updating feed:', error);
+      }
+    }, 30000);
+
+    return () => clearInterval(feedPolling);
+  }, []);
+
+  // Load suggested users
+  useEffect(() => {
+    loadSuggestedUsers();
+    // Also load all users for search functionality
+    loadAllUsers();
+  }, [userProfile]);
+
+  // Trigger profile refresh when switching to profile tab
+  useEffect(() => {
+    if (activeTab === 'profile') {
+      setProfileRefreshTrigger(prev => prev + 1);
+    }
+  }, [activeTab]);
+
+  // Reload feed when switching to home tab (initial load)
+  useEffect(() => {
+    console.log('🏠 Home tab useEffect triggered. userProfile:', !!userProfile, 'activeTab:', activeTab);
+    if (userProfile && activeTab === 'home') { // Only load when home tab is active
+      console.log('🏠 Loading initial feed for home tab');
+      loadFeedData('for-you').catch(error => {
+        console.error('Error loading initial feed:', error);
+        setError('Failed to load feed data');
+      });
+    }
+  }, [activeTab, userProfile]);
+
+  // Search and filter functions with real API calls
+  const handleSearch = async (query) => {
+    console.log('🔍 Search triggered with query:', query);
     setSearchQuery(query);
     if (query.trim()) {
-      const filtered = mockUsers.filter(user => 
-        user.username.toLowerCase().includes(query.toLowerCase()) ||
-        user.handle.toLowerCase().includes(query.toLowerCase()) ||
-        user.bio.toLowerCase().includes(query.toLowerCase())
-      );
-      setFilteredUsers(filtered);
-      setShowSearchResults(true);
+      try {
+        console.log('🔍 Searching for:', query);
+        
+        // Use the backend search API for better performance
+        const searchResults = await userAPI.searchUsers(query.trim());
+        console.log('🔍 Search API results:', searchResults);
+        
+        setFilteredUsers(searchResults || []);
+        setShowSearchResults(true);
+      } catch (error) {
+        console.error('🔍 Search API error:', error);
+        
+        // Check if it's an authentication error
+        if (error.message?.includes('token') || error.message?.includes('401') || error.message?.includes('authentication') || error.message?.includes('Invalid authentication')) {
+          console.warn('🔍 Authentication issue detected. Attempting to refresh login.');
+          
+          // Try to refresh the session or redirect to login
+          const storedUser = localStorage.getItem('user');
+          if (!storedUser) {
+            // No user stored, redirect to login
+            window.location.href = '/login';
+            return;
+          } else {
+            setError('Session expired. Please log in again.');
+          }
+        }
+        
+        // Always try fallback search regardless of error type
+        try {
+          console.log('🔍 Falling back to client-side search');
+          
+          // Use all available users for search
+          let searchableUsers = [];
+          
+          // Combine suggested users and all users
+          if (suggestedUsers.length > 0) {
+            searchableUsers = [...suggestedUsers];
+            console.log('🔍 Added suggested users:', suggestedUsers.length);
+          }
+          
+          if (allUsers.length > 0) {
+            // Add allUsers but avoid duplicates
+            const existingIds = new Set(searchableUsers.map(u => u.id));
+            const newUsers = allUsers.filter(u => !existingIds.has(u.id));
+            searchableUsers = [...searchableUsers, ...newUsers];
+            console.log('🔍 Added additional users:', newUsers.length, 'Total:', searchableUsers.length);
+          }
+          
+          // If no users available, try to load them
+          if (searchableUsers.length === 0) {
+            console.log('🔍 No users available, trying to load...');
+            try {
+              await loadAllUsers();
+              await loadSuggestedUsers();
+              searchableUsers = [...allUsers, ...suggestedUsers];
+            } catch (loadError) {
+              console.warn('🔍 Failed to load users:', loadError);
+            }
+          }
+          
+          // Perform client-side search
+          const filtered = searchableUsers.filter(user => 
+            user.username?.toLowerCase().includes(query.toLowerCase()) ||
+            user.email?.toLowerCase().includes(query.toLowerCase()) ||
+            user.displayName?.toLowerCase().includes(query.toLowerCase()) ||
+            user.name?.toLowerCase().includes(query.toLowerCase()) ||
+            user.bio?.toLowerCase().includes(query.toLowerCase())
+          );
+          
+          console.log('🔍 Client-side search results:', filtered.length, 'from', searchableUsers.length, 'users');
+          setFilteredUsers(filtered);
+          setShowSearchResults(true);
+          
+        } catch (fallbackError) {
+          console.error('🔍 Fallback search error:', fallbackError);
+          // Show empty results but still show the search interface
+          setFilteredUsers([]);
+          setShowSearchResults(true);
+        }
+      }
     } else {
       setShowSearchResults(false);
       setFilteredUsers([]);
@@ -486,30 +957,17 @@ const Dashboard = ({ user, onLogout }) => {
 
   const handleFilter = (type) => {
     setFilterType(type);
-    let filtered = [...mockPosts];
+    let filtered = [...tweets];
     
     switch (type) {
       case 'verified':
-        filtered = mockPosts.filter(post => post.user.verified);
-        break;
-      case 'high-engagement':
-        filtered = mockPosts.filter(post => 
-          parseInt(post.likes.replace(/[KMB]/g, '')) > 50 || 
-          parseInt(post.retweets.replace(/[KMB]/g, '')) > 10
-        );
+        filtered = tweets.filter(tweet => tweet.user?.verified);
         break;
       case 'recent':
-        filtered = mockPosts.filter(post => 
-          parseInt(post.timestamp.replace('h', '')) <= 3
-        );
-        break;
-      case 'trending':
-        filtered = mockPosts.filter(post => 
-          parseInt(post.views.replace(/[KMB]/g, '')) > 5
-        );
+        filtered = tweets.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         break;
       default:
-        filtered = mockPosts;
+        filtered = tweets;
     }
     
     setFilteredPosts(filtered);
@@ -525,6 +983,22 @@ const Dashboard = ({ user, onLogout }) => {
   const handleImageUpload = (event) => {
     const file = event.target.files[0];
     if (file) {
+      // Validate file type
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+      if (!allowedTypes.includes(file.type)) {
+        alert('Please select a valid image file (JPEG, PNG, GIF, WebP)');
+        event.target.value = ''; // Reset file input
+        return;
+      }
+      
+      // Validate file size (max 5MB)
+      const maxSize = 5 * 1024 * 1024; // 5MB
+      if (file.size > maxSize) {
+        alert('Please select an image smaller than 5MB');
+        event.target.value = ''; // Reset file input
+        return;
+      }
+
       setSelectedImage(file);
       const reader = new FileReader();
       reader.onload = (e) => setImagePreview(e.target.result);
@@ -532,21 +1006,106 @@ const Dashboard = ({ user, onLogout }) => {
     }
   };
 
-  const handlePost = () => {
-    if (postContent.trim() || selectedImage || (showPoll && pollQuestion.trim() && pollOptions.some(opt => opt.trim()))) {
-      // Mock post creation with poll data
-      const poll = showPoll && pollQuestion.trim() && pollOptions.some(opt => opt.trim())
-        ? {
-            question: pollQuestion,
-            options: pollOptions.filter(opt => opt.trim()),
-          }
-        : null;
-      console.log('Creating post:', {
-        content: postContent,
-        image: selectedImage,
-        location: selectedLocation,
-        poll,
+  const handlePost = async () => {
+    // Check if we have content, image, or a valid poll
+    const isPollValidForPost = showPoll && pollQuestion.trim() && pollOptions.filter(opt => opt.trim()).length >= 2;
+    
+    if (!postContent.trim() && !selectedImage && !isPollValidForPost) {
+      return;
+    }
+
+    try {
+      setTweetsLoading(true);
+      
+      let newTweet;
+      
+      // Handle poll creation
+      if (showPoll && isPollValidForPost) {
+        const pollData = {
+          question: pollQuestion.trim(),
+          options: pollOptions.filter(opt => opt.trim()).map(opt => opt.trim()),
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours from now
+        };
+
+        const pollResponse = await pollAPI.create(pollData);
+        newTweet = pollResponse?.payload?.data || pollResponse?.payload || pollResponse;
+        
+        // If poll creation was successful and we have content, also create a tweet
+        if (newTweet && postContent.trim()) {
+          const tweetData = {
+            content: postContent.trim(),
+            type: 'poll',
+            pollId: newTweet.id
+          };
+          
+          const tweetResponse = await tweetAPI.create(tweetData);
+          newTweet = tweetResponse?.payload?.data || tweetResponse?.payload || tweetResponse;
+        }
+      }
+      // Handle image upload
+      else if (selectedImage) {
+        console.log('📸 Creating tweet with image:', {
+          imageFile: selectedImage.name,
+          imageSize: selectedImage.size,
+          imageType: selectedImage.type,
+          content: postContent.trim()
+        });
+        
+        const formData = new FormData();
+        // Always include content, even if empty, as backend might expect it
+        formData.append('content', postContent.trim() || '');
+        formData.append('media', selectedImage);
+        // Remove type field - backend determines it automatically based on content and media
+        
+        // Add location if selected
+        if (selectedLocation) {
+          formData.append('location', JSON.stringify(selectedLocation));
+        }
+        
+        // Log FormData contents
+        console.log('📸 FormData contents:');
+        for (let [key, value] of formData.entries()) {
+          console.log(`${key}:`, value);
+        }
+        
+        const tweetResponse = await tweetAPI.createTweetWithImage(formData);
+        console.log('📸 Image tweet response:', tweetResponse);
+        newTweet = tweetResponse?.payload?.data || tweetResponse?.payload || tweetResponse;
+      } 
+      // Handle text-only tweets
+      else {
+        // Create tweet with text only - only send fields that backend expects
+        const tweetData = {
+          content: postContent.trim(),
+          type: 'text' // Add type field as per backend DTO
+        };
+
+        // Add location if selected
+        if (selectedLocation) {
+          tweetData.location = selectedLocation;
+        }
+
+        const tweetResponse = await tweetAPI.create(tweetData);
+        newTweet = tweetResponse?.payload?.data || tweetResponse?.payload || tweetResponse;
+      }
+      
+      // Add the new tweet to the top of the list if it exists
+      if (newTweet) {
+        console.log('New tweet created:', newTweet);
+        setTweets(prev => [newTweet, ...prev]);
+        setFilteredPosts(prev => [newTweet, ...prev]);
+        
+        // Trigger profile refresh so the new tweet appears in profile immediately
+        setProfileRefreshTrigger(prev => prev + 1);
+      }
+      
+      // Show success notification
+      NotificationManager.showNotification('Tweet posted!', {
+        body: 'Your tweet has been posted successfully',
+        tag: 'tweet-posted'
       });
+      
+      // Reset form
       setPostContent('');
       setSelectedImage(null);
       setImagePreview(null);
@@ -554,6 +1113,32 @@ const Dashboard = ({ user, onLogout }) => {
       setShowPoll(false);
       setPollQuestion('');
       setPollOptions(['', '']);
+      
+      // Reset file inputs
+      const fileInputs = document.querySelectorAll('input[type="file"]');
+      fileInputs.forEach(input => input.value = '');
+      
+    } catch (error) {
+      console.error('❌ Error creating tweet:', error);
+      
+      // Show specific error messages
+      if (error.message?.includes('Unexpected field')) {
+        setError('Image upload failed: Invalid image format. Please try a different image.');
+      } else if (error.message?.includes('token') || error.message?.includes('401')) {
+        setError('Authentication error. Please log in again.');
+      } else if (error.message?.includes('Too large')) {
+        setError('Image too large. Please select a smaller image (max 5MB).');
+      } else {
+        setError(error.message || 'Failed to post tweet. Please try again.');
+      }
+      
+      // Show error notification
+      NotificationManager.showNotification('Post failed', {
+        body: error.message || 'Failed to post tweet',
+        tag: 'tweet-error'
+      });
+    } finally {
+      setTweetsLoading(false);
     }
   };
 
@@ -578,12 +1163,39 @@ const Dashboard = ({ user, onLogout }) => {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { latitude, longitude } = position.coords;
-          setSelectedLocation({ latitude, longitude });
+          
+          // For now, just use coordinates - can be enhanced with geocoding later
+          setSelectedLocation({ 
+            latitude, 
+            longitude, 
+            name: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`
+          });
+          
           setShowLocationPicker(false);
         },
         (error) => {
           console.error('Error getting location:', error);
-          alert('Unable to get your location. Please check your browser settings.');
+          let errorMessage = 'Unable to get your location. ';
+          switch (error.code) {
+            case error.PERMISSION_DENIED:
+              errorMessage += 'Please allow location access in your browser settings.';
+              break;
+            case error.POSITION_UNAVAILABLE:
+              errorMessage += 'Location information is unavailable.';
+              break;
+            case error.TIMEOUT:
+              errorMessage += 'Location request timed out.';
+              break;
+            default:
+              errorMessage += 'An unknown error occurred.';
+              break;
+          }
+          alert(errorMessage);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 300000 // 5 minutes
         }
       );
     } else {
@@ -591,25 +1203,199 @@ const Dashboard = ({ user, onLogout }) => {
     }
   };
 
+  // Like handlers
+  const handleLike = async (tweetId) => {
+    if (likingTweets.has(tweetId)) return; // Prevent double-clicks
+    
+    setLikingTweets(prev => new Set([...prev, tweetId]));
+    
+    try {
+      const isCurrentlyLiked = likedTweets.has(tweetId);
+      
+      if (isCurrentlyLiked) {
+        // Unlike
+        await tweetAPI.unlike(tweetId);
+        setLikedTweets(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(tweetId);
+          return newSet;
+        });
+        setLikeCounts(prev => ({
+          ...prev,
+          [tweetId]: Math.max(0, (prev[tweetId] || 0) - 1)
+        }));
+      } else {
+        // Like
+        await tweetAPI.like(tweetId);
+        setLikedTweets(prev => new Set([...prev, tweetId]));
+        setLikeCounts(prev => ({
+          ...prev,
+          [tweetId]: (prev[tweetId] || 0) + 1
+        }));
+      }
+    } catch (error) {
+      console.error('Error toggling like:', error);
+      // Could add a toast notification here
+    } finally {
+      setLikingTweets(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(tweetId);
+        return newSet;
+      });
+    }
+  };
+
+  // Reply handler
+  const handleReply = (tweetId) => {
+    // For now, just focus the text area and mention the user
+    const tweet = tweets.find(t => t.id === tweetId);
+    if (tweet) {
+      setPostContent(`@${tweet.user?.username || 'user'} `);
+      // Find and focus the post input
+      setTimeout(() => {
+        const postInput = document.querySelector('.post-input');
+        if (postInput) {
+          postInput.focus();
+          postInput.setSelectionRange(postInput.value.length, postInput.value.length);
+        }
+      }, 100);
+    }
+  };
+
+  // Retweet handler
+  const handleRetweet = async (tweetId) => {
+    try {
+      await tweetAPI.retweet(tweetId);
+      // Refresh tweets by calling loadFeedData
+      loadFeedData();
+    } catch (error) {
+      console.error('Error retweeting:', error);
+      alert('Failed to retweet. Please try again.');
+    }
+  };
+
+  // Delete tweet handler
+  const handleDeleteTweet = async (tweetId) => {
+    if (window.confirm('Are you sure you want to delete this tweet?')) {
+      try {
+        await tweetAPI.delete(tweetId);
+        // Remove tweet from local state
+        setTweets(prev => prev.filter(t => t.id !== tweetId));
+        setFilteredPosts(prev => prev.filter(t => t.id !== tweetId));
+        alert('Tweet deleted successfully');
+      } catch (error) {
+        console.error('Error deleting tweet:', error);
+        alert('Failed to delete tweet. Please try again.');
+      }
+    }
+  };
+
+  // View tweet handler (for analytics)
+  const handleViewTweet = (tweetId) => {
+    console.log('Viewing tweet:', tweetId);
+    // Could implement view analytics here
+  };
+
+  // Load suggested users
+  const loadSuggestedUsers = async () => {
+    try {
+      setLoadingSuggestedUsers(true);
+      // Get all users except current user
+      const usersResponse = await userAPI.getAllUsers();
+      const allUsers = usersResponse?.payload || usersResponse || [];
+      const currentUserId = userProfile?.id || user?.id;
+      
+      if (Array.isArray(allUsers) && currentUserId) {
+        // Filter out current user and limit to 3-5 suggestions
+        const suggestions = allUsers
+          .filter(u => u.id !== currentUserId)
+          .slice(0, 5);
+        setSuggestedUsers(suggestions);
+      }
+    } catch (error) {
+      console.error('Error loading suggested users:', error);
+    } finally {
+      setLoadingSuggestedUsers(false);
+    }
+  };
+
+  // Load all users for the users modal
+  const loadAllUsers = async () => {
+    try {
+      setLoadingAllUsers(true);
+      const usersResponse = await userAPI.getAllUsers();
+      const allUsersData = usersResponse?.payload || usersResponse || [];
+      const currentUserId = userProfile?.id || user?.id;
+      
+      if (Array.isArray(allUsersData) && currentUserId) {
+        // Filter out current user
+        const filteredUsers = allUsersData.filter(u => u.id !== currentUserId);
+        setAllUsers(filteredUsers);
+      }
+    } catch (error) {
+      console.error('Error loading all users:', error);
+    } finally {
+      setLoadingAllUsers(false);
+    }
+  };
+
+  // Handle follow/unfollow
+  const handleFollow = async (userId) => {
+    console.log('handleFollow called with userId:', userId);
+    try {
+      if (followingUsers.has(userId)) {
+        // Unfollow
+        console.log('Unfollowing user:', userId);
+        await followAPI.unfollowUser(userId);
+        setFollowingUsers(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(userId);
+          return newSet;
+        });
+      } else {
+        // Follow
+        console.log('Following user:', userId);
+        await followAPI.followUser(userId);
+        setFollowingUsers(prev => new Set(prev).add(userId));
+      }
+      
+      // Trigger profile refresh to update follower/following counts
+      setProfileRefreshTrigger(prev => prev + 1);
+      
+      // Reload user profile to get updated following count
+      try {
+        const updatedProfile = await userAPI.getCurrentUser();
+        const profileData = updatedProfile?.payload?.data || updatedProfile?.data || updatedProfile;
+        setUserProfile(profileData);
+      } catch (profileError) {
+        console.log('Could not refresh user profile:', profileError);
+      }
+      
+    } catch (error) {
+      console.error('Error following/unfollowing user:', error);
+    }
+  };
+
   const isPollValid = showPoll ? pollQuestion.trim() && pollOptions.filter(opt => opt.trim()).length >= 2 : true;
   const isPostButtonDisabled = !postContent.trim() && !selectedImage && !(showPoll && isPollValid);
 
-  useEffect(() => {
-    const fetchUserProfile = async () => {
-      try {
-        if (user && user.id) {
-          const profile = await apiService.getUserProfile(user.id);
-          setUserProfile(profile);
-        }
-      } catch (error) {
-        console.error('Failed to fetch user profile:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  // This useEffect is no longer needed since we're loading user data in the main useEffect above
+  // useEffect(() => {
+  //   const fetchUserProfile = async () => {
+  //     try {
+  //       if (user && user.id) {
+  //         const profile = await userAPI.getCurrentUser();
+  //         setUserProfile(profile);
+  //       }
+  //     } catch (error) {
+  //       console.error('Failed to fetch user profile:', error);
+  //     } finally {
+  //       setLoading(false);
+  //     }
+  //   };
 
-    fetchUserProfile();
-  }, [user]);
+  //   fetchUserProfile();
+  // }, [user]);
 
   // Close emoji picker when clicked outside
   useEffect(() => {
@@ -630,8 +1416,11 @@ const Dashboard = ({ user, onLogout }) => {
   };
 
   const handleConfirmLogout = () => {
-    apiService.logout();
+    // Clear local storage and call parent logout
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
     onLogout();
+    setShowLogoutModal(false);
   };
 
   const handleCancelLogout = () => {
@@ -652,70 +1441,105 @@ const Dashboard = ({ user, onLogout }) => {
   const renderPageContent = () => {
     switch (activeTab) {
       case 'home':
-        return <HomePage 
-          user={user} 
-          filteredPosts={filteredPosts}
-          postContent={postContent}
-          setPostContent={setPostContent}
-          showPoll={showPoll}
-          setShowPoll={setShowPoll}
-          pollQuestion={pollQuestion}
-          setPollQuestion={setPollQuestion}
-          pollOptions={pollOptions}
-          setPollOptions={setPollOptions}
-          selectedImage={selectedImage}
-          imagePreview={imagePreview}
-          showEmojiPicker={showEmojiPicker}
-          setShowEmojiPicker={setShowEmojiPicker}
-          selectedLocation={selectedLocation}
-          handleImageUpload={handleImageUpload}
-          handlePost={handlePost}
-          handlePollOptionChange={handlePollOptionChange}
-          handleAddPollOption={handleAddPollOption}
-          handleRemovePollOption={handleRemovePollOption}
-          handleEmojiClick={handleEmojiClick}
-          handleLocationClick={handleLocationClick}
-          isPollValid={isPollValid}
-          setSelectedImage={setSelectedImage}
-          setImagePreview={setImagePreview}
-          setSelectedLocation={setSelectedLocation}
-          isPostButtonDisabled={isPostButtonDisabled}
-        />;
+        return (
+          <HomePage 
+            user={userProfile || user} 
+            filteredPosts={filteredPosts}
+            postContent={postContent}
+            setPostContent={setPostContent}
+            showPoll={showPoll}
+            setShowPoll={setShowPoll}
+            pollQuestion={pollQuestion}
+            setPollQuestion={setPollQuestion}
+            pollOptions={pollOptions}
+            setPollOptions={setPollOptions}
+            selectedImage={selectedImage}
+            imagePreview={imagePreview}
+            showEmojiPicker={showEmojiPicker}
+            setShowEmojiPicker={setShowEmojiPicker}
+            selectedLocation={selectedLocation}
+            handleImageUpload={handleImageUpload}
+            handlePost={handlePost}
+            handlePollOptionChange={handlePollOptionChange}
+            handleAddPollOption={handleAddPollOption}
+            handleRemovePollOption={handleRemovePollOption}
+            handleEmojiClick={handleEmojiClick}
+            handleLocationClick={handleLocationClick}
+            isPollValid={isPollValid}
+            setSelectedImage={setSelectedImage}
+            setImagePreview={setImagePreview}
+            setSelectedLocation={setSelectedLocation}
+            isPostButtonDisabled={isPostButtonDisabled}
+            loading={tweetsLoading}
+            error={error}
+            likedTweets={likedTweets}
+            likeCounts={likeCounts}
+            likingTweets={likingTweets}
+            handleLike={handleLike}
+            handleReply={handleReply}
+            handleRetweet={handleRetweet}
+            handleViewTweet={handleViewTweet}
+            tweets={tweets}
+            userProfile={userProfile}
+            setTweetsLoading={setTweetsLoading}
+            loadFeedData={loadFeedData}
+            handleSearch={handleSearch}
+            onTabChange={loadFeedData}
+          />
+        );
       case 'notifications':
         return <NotificationsPage />;
       case 'profile':
-        return <Profile user={user} onLogout={onLogout} />;
+        return <Profile user={userProfile || user} onLogout={onLogout} refreshTrigger={profileRefreshTrigger} />;
       case 'settings':
-        return <Settings user={user} onLogout={onLogout} />;
+        return <Settings user={userProfile || user} onLogout={onLogout} />;
       default:
-        return <HomePage 
-          user={user} 
-          filteredPosts={filteredPosts}
-          postContent={postContent}
-          setPostContent={setPostContent}
-          showPoll={showPoll}
-          setShowPoll={setShowPoll}
-          pollQuestion={pollQuestion}
-          setPollQuestion={setPollQuestion}
-          pollOptions={pollOptions}
-          setPollOptions={setPollOptions}
-          selectedImage={selectedImage}
-          imagePreview={imagePreview}
-          showEmojiPicker={showEmojiPicker}
-          setShowEmojiPicker={setShowEmojiPicker}
-          selectedLocation={selectedLocation}
-          handleImageUpload={handleImageUpload}
-          handlePost={handlePost}
-          handlePollOptionChange={handlePollOptionChange}
-          handleAddPollOption={handleAddPollOption}
-          handleRemovePollOption={handleRemovePollOption}
-          handleEmojiClick={handleEmojiClick}
-          handleLocationClick={handleLocationClick}
-          isPollValid={isPollValid}
-          setSelectedImage={setSelectedImage}
-          setImagePreview={setImagePreview}
-          setSelectedLocation={setSelectedLocation}
-        />;
+        return (
+          <HomePage 
+            user={userProfile || user} 
+            filteredPosts={filteredPosts}
+            postContent={postContent}
+            setPostContent={setPostContent}
+            showPoll={showPoll}
+            setShowPoll={setShowPoll}
+            pollQuestion={pollQuestion}
+            setPollQuestion={setPollQuestion}
+            pollOptions={pollOptions}
+            setPollOptions={setPollOptions}
+            selectedImage={selectedImage}
+            imagePreview={imagePreview}
+            showEmojiPicker={showEmojiPicker}
+            setShowEmojiPicker={setShowEmojiPicker}
+            selectedLocation={selectedLocation}
+            handleImageUpload={handleImageUpload}
+            handlePost={handlePost}
+            handlePollOptionChange={handlePollOptionChange}
+            handleAddPollOption={handleAddPollOption}
+            handleRemovePollOption={handleRemovePollOption}
+            handleEmojiClick={handleEmojiClick}
+            handleLocationClick={handleLocationClick}
+            isPollValid={isPollValid}
+            setSelectedImage={setSelectedImage}
+            setImagePreview={setImagePreview}
+            setSelectedLocation={setSelectedLocation}
+            isPostButtonDisabled={isPostButtonDisabled}
+            loading={tweetsLoading}
+            error={error}
+            likedTweets={likedTweets}
+            likeCounts={likeCounts}
+            likingTweets={likingTweets}
+            handleLike={handleLike}
+            handleReply={handleReply}
+            handleRetweet={handleRetweet}
+            handleViewTweet={handleViewTweet}
+            tweets={tweets}
+            userProfile={userProfile}
+            setTweetsLoading={setTweetsLoading}
+            loadFeedData={loadFeedData}
+            handleSearch={handleSearch}
+            onTabChange={loadFeedData}
+          />
+        );
     }
   };
 
@@ -849,22 +1673,34 @@ const Dashboard = ({ user, onLogout }) => {
                     <div key={user.id} className="search-result-item">
                       <div className="user-avatar">
                         <div className="avatar-placeholder">
-                          {user.username.substring(0, 2).toUpperCase()}
+                          {user.username?.substring(0, 2).toUpperCase() || 'U'}
                         </div>
                       </div>
                       <div className="user-info">
                         <div className="user-name">
-                          {user.username}
+                          {user.displayName || user.username}
                           {user.verified && (
                             <svg className="verified-badge" width="16" height="16" viewBox="0 0 24 24" fill="#7371FC">
                               <path d="M22.5 12.5c0-1.58-.875-2.95-2.148-3.6.154-.435.238-.905.238-1.4 0-2.21-1.71-3.998-3.818-3.998-.47 0-.92.084-1.336.25C14.818 2.415 13.51 1.5 12 1.5s-2.816.917-3.437 2.25c-.415-.165-.866-.25-1.336-.25-2.11 0-3.818 1.79-3.818 4 0 .494.083.964.237 1.4-1.272.65-2.147 2.018-2.147 3.6 0 1.495.782 2.798 1.942 3.486-.02.17-.032.34-.032.514 0 2.21 1.708 4 3.818 4 .47 0 .92-.086 1.335-.25.62 1.334 1.926 2.25 3.437 2.25 1.512 0 2.818-.916 3.437-2.25.415.163.865.248 1.336.248 2.11 0 3.818-1.79 3.818-4 0-.174-.012-.344-.033-.513 1.158-.687 1.943-1.99 1.943-3.484zm-6.616-3.334l-4.334 6.5c-.145.217-.382.334-.625.334-.143 0-.288-.04-.416-.126l-.115-.094-2.415-2.415c-.293-.293-.293-.768 0-1.06s.768-.294 1.06 0l1.77 1.767 3.825-5.74c.23-.345.696-.436 1.04-.207.346.23.44.696.21 1.04z"/>
                             </svg>
                           )}
                         </div>
-                        <div className="user-handle">{user.handle}</div>
-                        <div className="user-bio">{user.bio}</div>
-                        <div className="user-followers">{user.followers} followers</div>
+                        <div className="user-handle">@{user.username}</div>
+                        <div className="user-bio">{user.bio || 'No bio available'}</div>
+                        <div className="user-followers">{user.followersCount || 0} followers</div>
                       </div>
+                      <button
+                        className={`follow-btn ${followingUsers.has(user.id) ? 'following' : ''}`}
+                        onClick={(e) => {
+                          console.log('Follow button clicked in search results:', user.id);
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleFollow(user.id);
+                        }}
+                        style={{ pointerEvents: 'auto', zIndex: 20 }}
+                      >
+                        {followingUsers.has(user.id) ? 'Following' : 'Follow'}
+                      </button>
                     </div>
                   ))
                 ) : (
@@ -915,6 +1751,61 @@ const Dashboard = ({ user, onLogout }) => {
             </div>
             <div className="trending-content">
               <p>No trending topics yet.</p>
+            </div>
+          </div>
+
+          {/* People You Might Like Section */}
+          <div className="sidebar-section suggested-users-section">
+            <div className="trending-header">
+              <h3>People you might like</h3>
+            </div>
+            <div className="suggested-users-content">
+              {loadingSuggestedUsers ? (
+                <p>Loading suggestions...</p>
+              ) : suggestedUsers.length > 0 ? (
+                <>
+                  {suggestedUsers.map(suggestedUser => (
+                    <div key={suggestedUser.id} className="suggested-user-item">
+                      <div className="user-avatar">
+                        <div className="avatar-placeholder">
+                          {suggestedUser.username?.substring(0, 2).toUpperCase() || 'U'}
+                        </div>
+                      </div>
+                      <div className="user-info">
+                        <div className="user-details">
+                          <div className="user-name">{suggestedUser.username}</div>
+                          <div className="user-handle">{suggestedUser.email}</div>
+                        </div>
+                      </div>
+                      <button
+                        className={`follow-btn ${followingUsers.has(suggestedUser.id) ? 'following' : ''}`}
+                        onClick={(e) => {
+                          console.log('Follow button clicked in suggested users:', suggestedUser.id);
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleFollow(suggestedUser.id);
+                        }}
+                        style={{ pointerEvents: 'auto', zIndex: 20 }}
+                      >
+                        {followingUsers.has(suggestedUser.id) ? 'Following' : 'Follow'}
+                      </button>
+                    </div>
+                  ))}
+                  <div className="view-more-container">
+                    <button 
+                      className="view-more-btn"
+                      onClick={() => {
+                        loadAllUsers();
+                        setShowUsersModal(true);
+                      }}
+                    >
+                      View more users
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <p>No suggestions available.</p>
+              )}
             </div>
           </div>
         </div>
@@ -1026,6 +1917,67 @@ const Dashboard = ({ user, onLogout }) => {
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Users Modal */}
+      {showUsersModal && (
+        <div className="modal-overlay" onClick={() => setShowUsersModal(false)}>
+          <div className="users-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div className="modal-header-left">
+                <button 
+                  className="modal-close-btn" 
+                  onClick={() => setShowUsersModal(false)}
+                >
+                  ✕
+                </button>
+                <h2>All Users</h2>
+              </div>
+            </div>
+            
+            <div className="users-modal-content">
+              {loadingAllUsers ? (
+                <div className="loading-users">
+                  <p>Loading users...</p>
+                </div>
+              ) : allUsers.length > 0 ? (
+                <div className="users-list">
+                  {allUsers.map(user => (
+                    <div key={user.id} className="user-item">
+                      <div className="user-info">
+                        <div className="user-avatar">
+                          <div className="avatar-placeholder">
+                            {user.username?.substring(0, 2).toUpperCase() || 'U'}
+                          </div>
+                        </div>
+                        <div className="user-details">
+                          <div className="username">{user.username}</div>
+                          <div className="user-email">{user.email || 'No email available'}</div>
+                          <div className="user-bio">{user.bio || 'No bio available'}</div>
+                        </div>
+                      </div>
+                      <button
+                        className={`follow-btn ${followingUsers.has(user.id) ? 'following' : ''}`}
+                        onClick={(e) => {
+                          console.log('Follow button clicked in modal:', user.id);
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleFollow(user.id);
+                        }}
+                      >
+                        {followingUsers.has(user.id) ? 'Following' : 'Follow'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="no-users">
+                  <p>No users available.</p>
+                </div>
+              )}
             </div>
           </div>
         </div>

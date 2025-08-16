@@ -57,12 +57,10 @@ const SplashScreen = () => {
               />
             )}
           </div>
-        </div>
 
-        {/* Side Panel with Introduction */}
-        <div className="side-panel">
+          {/* Introduction Section - Now aligned with auth buttons */}
           <div className="intro-section">
-            <h2>About to Epita Twitter</h2>
+            <h2>About Epita Twitter</h2>
             <p className="intro-description">
               Connect with friends, share your thoughts, and discover what's happening around the world. 
               Join the conversation and be part of a vibrant community where every voice matters.

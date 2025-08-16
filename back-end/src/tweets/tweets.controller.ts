@@ -157,4 +157,49 @@ export class TweetsController {
             total: result.total,
         };
     }
+
+    // Like Tweet API (POST /tweets/:tweetId/like)
+    @Post(':tweetId/like')
+    @UseGuards(JwtAuthGuard)
+    @HttpCode(HttpStatus.OK)
+    async likeTweet(
+        @Param('tweetId') tweetId: string,
+        @Request() req,
+    ): Promise<{ success: boolean; message: string; likesCount: number }> {
+        await this.tweetsService.incrementLikeCount(tweetId);
+
+        const tweet = await this.tweetsService.getTweetById(tweetId);
+        return {
+            success: true,
+            message: 'Tweet liked successfully',
+            likesCount: tweet.likesCount,
+        };
+    }
+
+    // Unlike Tweet API (DELETE /tweets/:tweetId/like)
+    @Delete(':tweetId/like')
+    @UseGuards(JwtAuthGuard)
+    @HttpCode(HttpStatus.OK)
+    async unlikeTweet(
+        @Param('tweetId') tweetId: string,
+        @Request() req,
+    ): Promise<{ success: boolean; message: string; likesCount: number }> {
+        await this.tweetsService.decrementLikeCount(tweetId);
+
+        const tweet = await this.tweetsService.getTweetById(tweetId);
+        return {
+            success: true,
+            message: 'Tweet unliked successfully',
+            likesCount: tweet.likesCount,
+        };
+    }
+
+    // Get Like Count API (GET /tweets/:tweetId/likes)
+    @Get(':tweetId/likes')
+    async getLikeCount(@Param('tweetId') tweetId: string): Promise<{ count: number }> {
+        const tweet = await this.tweetsService.getTweetById(tweetId);
+        return {
+            count: tweet.likesCount || 0,
+        };
+    }
 } 

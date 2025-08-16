@@ -4,7 +4,7 @@ import { UpdateProfileDto } from "./dto/update-profile.dto";
 import { ChangePasswordDto } from "./dto/change-password.dto";
 import { UserProfileDto } from "./dto/user-profile.dto";
 import { InjectRepository } from "@nestjs/typeorm";
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, Repository, Not } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { User } from "./entities/user.entity";
 import { CloudinaryService } from "./cloudinary.service";
@@ -130,6 +130,32 @@ export class UsersService {
         }
 
         await this.userRepository.delete(id);
+    }
+
+    async getAllUsers(currentUserId: string): Promise<UserProfileDto[]> {
+        // Get all users except the current user, limit to 10 for suggestions
+        const users = await this.userRepository.find({
+            where: { id: Not(currentUserId) },
+            select: ['id', 'username', 'displayName', 'bio', 'profileImageUrl', 'followersCount'],
+            take: 20,
+            order: { dateJoined: 'DESC' }
+        });
+
+        return users.map(user => this.mapToProfileDto(user));
+    }
+
+    async searchUsers(query: string): Promise<UserProfileDto[]> {
+        // Search users by username, displayName, or bio
+        const users = await this.userRepository
+            .createQueryBuilder('user')
+            .where('user.username ILIKE :query', { query: `%${query}%` })
+            .orWhere('user.displayName ILIKE :query', { query: `%${query}%` })
+            .orWhere('user.bio ILIKE :query', { query: `%${query}%` })
+            .select(['user.id', 'user.username', 'user.displayName', 'user.bio', 'user.profileImageUrl', 'user.followersCount'])
+            .take(10)
+            .getMany();
+
+        return users.map(user => this.mapToProfileDto(user));
     }
 
     private mapToProfileDto(user: User): UserProfileDto {

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { userAPI } from '../services/api';
 import '../styles/Settings.css';
 
 const Settings = ({ user, onLogout }) => {
@@ -8,43 +9,164 @@ const Settings = ({ user, onLogout }) => {
     bio: '',
     location: '',
     email: '',
-    phone: ''
+    phone: '',
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
   });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+  const [userProfile, setUserProfile] = useState(null);
 
-  // Mock user data - in real app this would come from props
-  const userProfile = {
-    username: 'Sita Sharma',
-    handle: '@sitasharma_np',
-    bio: 'Proud Nepali 🇳🇵 | Love for mountains and momo | Digital Nepal advocate | Kathmandu ❤️ #NepalFirst',
-    location: 'Kathmandu, Nepal',
-    website: 'visitnepal.com',
-    email: 'sita.sharma@gmail.com',
-    phone: '+977-9841234567',
-    dateOfBirth: '1995-04-15'
-  };
+  // Load user profile data on component mount
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      try {
+        setLoading(true);
+        const profile = await userAPI.getMe();
+        setUserProfile(profile);
+        
+        // Initialize form data with current profile data
+        setFormData({
+          name: profile.displayName || profile.name || '',
+          bio: profile.bio || '',
+          location: profile.location || '',
+          email: profile.email || '',
+          phone: profile.phone || '',
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: ''
+        });
+      } catch (error) {
+        console.error('Error loading user profile:', error);
+        setError('Failed to load profile data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (user) {
+      loadUserProfile();
+    }
+  }, [user]);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleSaveSettings = () => {
-    console.log('Saving settings:', formData);
-    // Here you would make API call to save settings
+  const handleSaveSettings = async () => {
+    try {
+      setSaving(true);
+      setError(null);
+      
+      const updatedData = {};
+      // Map frontend fields to backend fields and only include changed fields
+      const fieldMapping = {
+        'name': 'displayName',
+        'bio': 'bio',
+        'location': 'location',
+        'email': 'email', // Note: email might not be updatable via this endpoint
+        'phone': 'phone'  // Note: phone might not be supported
+      };
+      
+      Object.keys(fieldMapping).forEach(frontendField => {
+        const backendField = fieldMapping[frontendField];
+        const currentValue = formData[frontendField];
+        const originalValue = userProfile[frontendField] || userProfile[backendField] || '';
+        
+        if (currentValue !== originalValue) {
+          updatedData[backendField] = currentValue;
+        }
+      });
+
+      if (Object.keys(updatedData).length > 0) {
+        console.log('Sending update data:', updatedData);
+        const response = await userAPI.updateProfile(updatedData);
+        setUserProfile(response);
+        console.log('Settings saved successfully:', response);
+      } else {
+        console.log('No changes to save');
+      }
+    } catch (error) {
+      console.error('Error saving settings:', error);
+      setError('Failed to save settings. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    try {
+      // Validate passwords
+      if (!formData.currentPassword || !formData.newPassword || !formData.confirmPassword) {
+        setError('All password fields are required');
+        return;
+      }
+
+      if (formData.newPassword !== formData.confirmPassword) {
+        setError('New passwords do not match');
+        return;
+      }
+
+      if (formData.newPassword.length < 6) {
+        setError('New password must be at least 6 characters long');
+        return;
+      }
+
+      setSaving(true);
+      setError(null);
+      
+      await userAPI.changePassword({
+        currentPassword: formData.currentPassword,
+        newPassword: formData.newPassword
+      });
+
+      // Clear password fields on success
+      setFormData(prev => ({
+        ...prev,
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      }));
+
+      console.log('Password changed successfully');
+      alert('Password changed successfully!');
+    } catch (error) {
+      console.error('Error changing password:', error);
+      setError(error.message || 'Failed to change password. Please check your current password.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const renderTabContent = () => {
+    if (loading) {
+      return <div className="loading">Loading profile...</div>;
+    }
+
+    if (error) {
+      return <div className="error">{error}</div>;
+    }
+
+    if (!userProfile) {
+      return <div className="error">Profile data not available</div>;
+    }
+
     switch(activeTab) {
       case 'name':
         return (
           <div className="settings-form">
             <h3>Profile Information</h3>
+            {error && <div className="error-message">{error}</div>}
             <div className="settings-form-group">
               <label>Name</label>
               <input 
                 type="text" 
-                defaultValue={userProfile.username}
+                value={formData.name}
                 onChange={(e) => handleInputChange('name', e.target.value)}
                 maxLength="50"
+                placeholder={userProfile.name || 'Enter your name'}
               />
               <span className="char-count">{formData.name.length} / 50</span>
             </div>
@@ -52,10 +174,11 @@ const Settings = ({ user, onLogout }) => {
             <div className="settings-form-group">
               <label>Bio</label>
               <textarea 
-                defaultValue={userProfile.bio}
+                value={formData.bio}
                 onChange={(e) => handleInputChange('bio', e.target.value)}
                 maxLength="160"
                 rows="3"
+                placeholder={userProfile.bio || 'Tell us about yourself'}
               />
               <span className="char-count">{formData.bio.length} / 160</span>
             </div>
@@ -64,16 +187,21 @@ const Settings = ({ user, onLogout }) => {
               <label>Location</label>
               <input 
                 type="text" 
-                defaultValue={userProfile.location}
+                value={formData.location}
                 onChange={(e) => handleInputChange('location', e.target.value)}
                 maxLength="30"
+                placeholder={userProfile.location || 'Where are you located?'}
               />
               <span className="char-count">{formData.location.length} / 30</span>
             </div>
             
             <div className="settings-form-group">
-              <button className="settings-save-btn" onClick={handleSaveSettings}>
-                Save
+              <button 
+                className="settings-save-btn" 
+                onClick={handleSaveSettings}
+                disabled={saving}
+              >
+                {saving ? 'Saving...' : 'Save'}
               </button>
             </div>
           </div>
@@ -83,12 +211,14 @@ const Settings = ({ user, onLogout }) => {
         return (
           <div className="settings-form">
             <h3>Contact Information</h3>
+            {error && <div className="error-message">{error}</div>}
             <div className="settings-form-group">
               <label>Email Address</label>
               <input 
                 type="email" 
-                defaultValue={userProfile.email}
+                value={formData.email}
                 onChange={(e) => handleInputChange('email', e.target.value)}
+                placeholder={userProfile.email || 'Enter your email'}
               />
               <small className="form-help">This will be used for account notifications and recovery.</small>
             </div>
@@ -97,15 +227,70 @@ const Settings = ({ user, onLogout }) => {
               <label>Phone Number</label>
               <input 
                 type="tel" 
-                defaultValue={userProfile.phone}
+                value={formData.phone}
                 onChange={(e) => handleInputChange('phone', e.target.value)}
+                placeholder={userProfile.phone || 'Enter your phone number'}
               />
               <small className="form-help">For two-factor authentication and account security.</small>
             </div>
             
             <div className="settings-form-group">
-              <button className="settings-save-btn" onClick={handleSaveSettings}>
-                Save
+              <button 
+                className="settings-save-btn" 
+                onClick={handleSaveSettings}
+                disabled={saving}
+              >
+                {saving ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+        );
+      
+      case 'password':
+        return (
+          <div className="settings-form">
+            <h3>Change Password</h3>
+            {error && <div className="error-message">{error}</div>}
+            <div className="settings-form-group">
+              <label>Current Password</label>
+              <input 
+                type="password" 
+                value={formData.currentPassword || ''}
+                onChange={(e) => handleInputChange('currentPassword', e.target.value)}
+                placeholder="Enter your current password"
+              />
+            </div>
+            
+            <div className="settings-form-group">
+              <label>New Password</label>
+              <input 
+                type="password" 
+                value={formData.newPassword || ''}
+                onChange={(e) => handleInputChange('newPassword', e.target.value)}
+                placeholder="Enter new password"
+                minLength="6"
+              />
+              <small className="form-help">Password must be at least 6 characters long.</small>
+            </div>
+            
+            <div className="settings-form-group">
+              <label>Confirm New Password</label>
+              <input 
+                type="password" 
+                value={formData.confirmPassword || ''}
+                onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
+                placeholder="Confirm new password"
+                minLength="6"
+              />
+            </div>
+            
+            <div className="settings-form-group">
+              <button 
+                className="settings-save-btn" 
+                onClick={handleChangePassword}
+                disabled={saving}
+              >
+                {saving ? 'Changing...' : 'Change Password'}
               </button>
             </div>
           </div>
@@ -232,6 +417,15 @@ const Settings = ({ user, onLogout }) => {
               <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
             </svg>
             Contact
+          </button>
+          <button 
+            className={`settings-tab ${activeTab === 'password' ? 'active' : ''}`}
+            onClick={() => setActiveTab('password')}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M18,8h-1V6c0-2.76-2.24-5-5-5S7,3.24,7,6v2H6c-1.1,0-2,0.9-2,2v10c0,1.1,0.9,2,2,2h12c1.1,0,2-0.9,2-2V10 C20,8.9,19.1,8,18,8z M12,17c-1.1,0-2-0.9-2-2s0.9-2,2-2s2,0.9,2,2S13.1,17,12,17z M15.1,8H8.9V6c0-1.71,1.39-3.1,3.1-3.1 s3.1,1.39,3.1,3.1V8z"/>
+            </svg>
+            Password
           </button>
           <button 
             className={`settings-tab ${activeTab === 'preferences' ? 'active' : ''}`}
