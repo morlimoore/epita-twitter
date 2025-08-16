@@ -1,18 +1,29 @@
-import { IsString, IsNotEmpty, IsArray, IsOptional, IsUUID, MinLength, MaxLength, IsDateString, ArrayMinSize, ArrayMaxSize } from 'class-validator';
+import {
+    IsArray,
+    IsDateString,
+    IsNotEmpty,
+    IsOptional,
+    IsString,
+    IsUUID,
+    ArrayMinSize,
+    ArrayMaxSize,
+    Length,
+} from 'class-validator';
 
 export class CreatePollDto {
-    @IsUUID('4', { message: 'Invalid tweet ID format' })
-    @IsNotEmpty({ message: 'Tweet ID is required' })
+    @IsString()
+    @IsUUID()
+    @IsNotEmpty()
     tweet_id: string;
 
-    @IsArray({ message: 'Options must be an array' })
-    @ArrayMinSize(2, { message: 'Poll must have at least 2 options' })
-    @ArrayMaxSize(4, { message: 'Poll cannot have more than 4 options' })
-    @MinLength(1, { message: 'Option text cannot be empty' })
-    @MaxLength(100, { message: 'Option text cannot exceed 100 characters' })
+    @IsArray()
+    @IsString({ each: true })
+    @ArrayMinSize(2, { message: 'A poll must have at least 2 options.' })
+    @ArrayMaxSize(4, { message: 'A poll can have at most 4 options.' })
+    @Length(1, 25, { each: true, message: 'Each option must be between 1 and 25 characters.' })
     options: string[];
 
     @IsOptional()
-    @IsDateString({}, { message: 'Invalid date format for expires_at' })
+    @IsDateString()
     expires_at?: string;
-} 
+}

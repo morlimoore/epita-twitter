@@ -5,6 +5,7 @@ import {
     HttpException,
     HttpStatus,
     UnauthorizedException,
+    BadRequestException,
 } from '@nestjs/common';
 import { QueryFailedError, EntityNotFoundError } from 'typeorm';
 
@@ -18,11 +19,21 @@ export class AllExceptionsFilter implements ExceptionFilter {
         const response = ctx.getResponse();
 
         let status = HttpStatus.INTERNAL_SERVER_ERROR;
-        let message = 'Internal server error';
+        let message: string | object = 'Internal server error';
 
         if (exception instanceof UnauthorizedException) {
             status = HttpStatus.UNAUTHORIZED;
             message = exception.message || 'Unauthorized';
+        } else if (exception instanceof BadRequestException) {
+            status = HttpStatus.BAD_REQUEST;
+            const exceptionResponse = exception.getResponse();
+            const validationMessages = (exceptionResponse as any).message;
+
+            if (Array.isArray(validationMessages)) {
+                message = validationMessages.join('. ');
+            } else {
+                message = validationMessages || exceptionResponse;
+            }
         } else if (exception instanceof HttpException) {
             status = exception.getStatus();
             message = exception.message;
