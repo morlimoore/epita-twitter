@@ -44,10 +44,6 @@ const LogoutScreen = ({ onCancel, onConfirmLogout }) => {
 
         <div className="logout-content">
           <h2>Log out of Epita Twitter?</h2>
-          <p className="logout-description">
-            You can always log back in at any time. If you just want to switch accounts, 
-            you can do that by adding an existing account.
-          </p>
 
           <div className="logout-actions">
             <button 
@@ -69,15 +65,6 @@ const LogoutScreen = ({ onCancel, onConfirmLogout }) => {
             >
               Cancel
             </button>
-          </div>
-        </div>
-
-        <div className="logout-footer">
-          <p>Thanks for using Epita Twitter!</p>
-          <div className="logout-features">
-            <span>✓ Your data is safely stored</span>
-            <span>✓ Easy to log back in</span>
-            <span>✓ Account remains active</span>
           </div>
         </div>
       </div>
